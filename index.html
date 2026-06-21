@@ -132,6 +132,14 @@
 
   <!-- ============== FINANCES VIEW (balances + savings) ============== -->
   <section class="view hidden" data-view="finances">
+    <div class="hero-card finances-hero">
+      <div class="hero-top">
+        <span class="hero-eyebrow">כל הכסף שלנו, ביחד</span>
+      </div>
+      <div class="hero-figure" id="grand-total-figure">0 ₪</div>
+      <div class="hero-sub">יוסף + אגם + מזומן + חיסכון, הכל ביחד</div>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h2>יתרות נוכחיות</h2></div>
       <p class="panel-desc">היתרה מחושבת אוטומטית ונשמרת לאורך כל הזמן (לא מתאפסת בתחילת חודש). אפשר בכל רגע "לאפס" ולקבוע יתרה מדויקת - פשוט הקלידו את הסכום האמיתי ולחצו שמירה.</p>
@@ -270,10 +278,90 @@
     </div>
   </section>
 
+  <!-- ============== DEBTS VIEW ============== -->
+  <section class="view hidden" data-view="debts">
+    <div class="hero-card debts-hero">
+      <div class="hero-top">
+        <span class="hero-eyebrow">מאזן חובות</span>
+        <span class="hero-badge" id="debts-badge">—</span>
+      </div>
+      <div class="hero-figure" id="debts-net-figure">0 ₪</div>
+      <div class="hero-sub" id="debts-net-sub">אין חובות פתוחים</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card tint-rose">
+        <span class="stat-label">אנחנו חייבים</span>
+        <span class="stat-value" id="stat-we-owe">0₪</span>
+      </div>
+      <div class="stat-card tint-green">
+        <span class="stat-label">חייבים לנו</span>
+        <span class="stat-value" id="stat-owed-to-us">0₪</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <button id="open-add-debt" class="submit-btn">+ חוב חדש</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>סיכום לפי אדם</h2></div>
+      <div id="debts-by-person"><p class="empty-hint">אין חובות פתוחים</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>חובות פתוחים</h2></div>
+      <div id="debts-open-list" class="expense-list"><p class="empty-hint">אין חובות פתוחים כרגע</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>היסטוריה (חובות שנסגרו)</h2></div>
+      <div id="debts-settled-list" class="expense-list"><p class="empty-hint">עדיין אין היסטוריה</p></div>
+    </div>
+  </section>
+
 </div>
 
 <!-- Floating add button -->
 <button id="open-add" class="fab" aria-label="הוסף">+</button>
+
+<!-- Add debt modal -->
+<div id="debt-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>חוב חדש</h3>
+      <button id="close-debt-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <form id="debt-form">
+      <label class="field">
+        <span>שם האדם</span>
+        <input type="text" id="debt-name" required placeholder="לדוגמה: דני כהן">
+      </label>
+      <label class="field">
+        <span>סכום (₪)</span>
+        <input type="number" id="debt-amount" inputmode="decimal" min="0" step="0.1" required>
+      </label>
+      <div class="field">
+        <span>כיוון</span>
+        <div class="who-pay debt-direction">
+          <label class="who-option">
+            <input type="radio" name="debtDirection" value="owe" checked>
+            <span>אנחנו חייבים</span>
+          </label>
+          <label class="who-option">
+            <input type="radio" name="debtDirection" value="owed">
+            <span>חייבים לנו</span>
+          </label>
+        </div>
+      </div>
+      <label class="field">
+        <span>הערה (לא חובה)</span>
+        <input type="text" id="debt-note" placeholder="על מה זה?">
+      </label>
+      <button type="submit" class="submit-btn">הוספת חוב</button>
+    </form>
+  </div>
+</div>
 
 <!-- Add expense/income modal -->
 <div id="modal-overlay" class="modal-overlay hidden">
@@ -372,6 +460,10 @@
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
         <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">פיצ׳רים ומגמות</span></span>
+      </button>
+      <button class="drawer-item" data-view="debts">
+        <span class="drawer-icon">🤝</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">חובות</span><span class="drawer-item-sub">אנחנו ↔ אנשים אחרים</span></span>
       </button>
       <button class="drawer-item" data-view="settings">
         <span class="drawer-icon">⚙️</span>

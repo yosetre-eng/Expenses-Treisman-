@@ -14,6 +14,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const expensesRef = db.collection("expenses");
 const incomeRef = db.collection("income");
+const debtsRef = db.collection("debts");
 const configRef = db.collection("meta").doc("config");
 
 /* ============================================================
@@ -21,6 +22,7 @@ const configRef = db.collection("meta").doc("config");
    ============================================================ */
 let allExpenses = [];
 let allIncome = [];
+let allDebts = [];
 let currentMonth = new Date();
 currentMonth.setDate(1);
 currentMonth.setHours(0, 0, 0, 0);
@@ -59,6 +61,11 @@ incomeRef.orderBy("date", "desc").onSnapshot((snapshot) => {
   allIncome = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   renderCurrentView();
 }, (err) => console.error("Firestore error (income):", err));
+
+debtsRef.orderBy("date", "desc").onSnapshot((snapshot) => {
+  allDebts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  renderCurrentView();
+}, (err) => console.error("Firestore error (debts):", err));
 
 configRef.onSnapshot((doc) => {
   if (!doc.exists) {
@@ -110,6 +117,7 @@ function renderCurrentView() {
   else if (currentView === "budget") renderBudgetView();
   else if (currentView === "wedding") renderWeddingView();
   else if (currentView === "reports") renderReportsView();
+  else if (currentView === "debts") renderDebtsView();
   else if (currentView === "settings") renderSettingsView();
 }
 
@@ -153,6 +161,9 @@ function computeAccountBalance(account) {
 }
 function computeTotalBalance() {
   return ACCOUNTS.reduce((s, a) => s + computeAccountBalance(a), 0);
+}
+function computeGrandTotal() {
+  return BALANCE_ACCOUNTS.reduce((s, a) => s + computeAccountBalance(a), 0);
 }
 function computeTotalSaved() {
   return (config.savingsGoals || []).reduce((s, g) => s + (Number(g.saved) || 0), 0);
@@ -353,6 +364,7 @@ function renderIncomeView() {
    9) FINANCES VIEW (balances + savings)
    ============================================================ */
 function renderFinancesView() {
+  document.getElementById("grand-total-figure").textContent = `${Math.round(computeGrandTotal()).toLocaleString()} ₪`;
   const container = document.getElementById("balance-cards");
   container.innerHTML = BALANCE_ACCOUNTS.map((acc) => {
     const balance = computeAccountBalance(acc);
@@ -562,7 +574,107 @@ document.getElementById("open-add-wedding").addEventListener("click", () => {
 });
 
 /* ============================================================
-   12) REPORTS VIEW
+   12) DEBTS VIEW (we owe people / people owe us)
+   ============================================================ */
+function debtRowHtml(d) {
+  const dateStr = toDate(d.date).toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  const dirLabel = d.direction === "owe" ? "אנחנו חייבים" : "חייבים לנו";
+  const dotClass = d.direction === "owe" ? "dot-debt-owe" : "dot-debt-owed";
+  const amountClass = d.direction === "owed" ? "row-amount income" : "row-amount";
+  const settleBtn = !d.settled ? `<button class="row-settle" data-id="${d.id}" aria-label="סגירת חוב">✓</button>` : `<button class="row-reopen" data-id="${d.id}">פתיחה מחדש</button>`;
+  return `
+    <div class="expense-row">
+      <span class="row-dot ${dotClass}"></span>
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(d.name)}</div>
+        <div class="row-meta">${dirLabel}${d.note ? ` · ${escapeHtml(d.note)}` : ""} · ${dateStr}</div>
+      </div>
+      <span class="${amountClass}">${Math.round(d.amount).toLocaleString()}₪</span>
+      ${settleBtn}
+      <button class="row-delete" data-id="${d.id}" aria-label="מחק">✕</button>
+    </div>`;
+}
+function renderDebtList(container, list, opts = {}) {
+  if (list.length === 0) {
+    container.innerHTML = `<p class="empty-hint">${opts.emptyText || "אין נתונים"}</p>`;
+    return;
+  }
+  container.innerHTML = list.map(debtRowHtml).join("");
+  container.querySelectorAll(".row-delete").forEach((btn) => {
+    btn.addEventListener("click", () => { if (confirm("למחוק את החוב?")) debtsRef.doc(btn.dataset.id).delete(); });
+  });
+  container.querySelectorAll(".row-settle").forEach((btn) => {
+    btn.addEventListener("click", () => debtsRef.doc(btn.dataset.id).update({ settled: true }));
+  });
+  container.querySelectorAll(".row-reopen").forEach((btn) => {
+    btn.addEventListener("click", () => debtsRef.doc(btn.dataset.id).update({ settled: false }));
+  });
+}
+function renderDebtsView() {
+  const open = allDebts.filter((d) => !d.settled);
+  const settled = allDebts.filter((d) => d.settled);
+  const weOwe = sumBy(open, (d) => d.direction === "owe");
+  const owedToUs = sumBy(open, (d) => d.direction === "owed");
+  const net = owedToUs - weOwe;
+
+  const figure = document.getElementById("debts-net-figure");
+  const sub = document.getElementById("debts-net-sub");
+  const badge = document.getElementById("debts-badge");
+  if (open.length === 0) {
+    figure.textContent = "0 ₪"; sub.textContent = "אין חובות פתוחים"; badge.textContent = "ריק";
+  } else if (Math.abs(net) < 1) {
+    figure.textContent = "מאוזן 🎉"; sub.textContent = "מה שאנחנו חייבים שווה למה שחייבים לנו"; badge.textContent = "פעיל";
+  } else if (net > 0) {
+    figure.textContent = `${Math.round(net).toLocaleString()} ₪`; sub.textContent = "בסך הכל חייבים לנו יותר ממה שאנחנו חייבים"; badge.textContent = "פעיל";
+  } else {
+    figure.textContent = `${Math.round(Math.abs(net)).toLocaleString()} ₪`; sub.textContent = "בסך הכל אנחנו חייבים יותר ממה שחייבים לנו"; badge.textContent = "פעיל";
+  }
+
+  document.getElementById("stat-we-owe").textContent = `${Math.round(weOwe).toLocaleString()}₪`;
+  document.getElementById("stat-owed-to-us").textContent = `${Math.round(owedToUs).toLocaleString()}₪`;
+
+  const personMap = {};
+  open.forEach((d) => { personMap[d.name] = (personMap[d.name] || 0) + (d.direction === "owed" ? d.amount : -d.amount); });
+  const personContainer = document.getElementById("debts-by-person");
+  const personEntries = Object.entries(personMap).filter(([, v]) => Math.abs(v) > 0.5);
+  if (personEntries.length === 0) {
+    personContainer.innerHTML = `<p class="empty-hint">אין חובות פתוחים</p>`;
+  } else {
+    personContainer.innerHTML = personEntries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).map(([name, v]) => {
+      const positive = v > 0;
+      const text = positive ? `חייב/ת לנו ${Math.round(v).toLocaleString()}₪` : `אנחנו חייבים ${Math.round(Math.abs(v)).toLocaleString()}₪`;
+      return `
+        <div class="person-row">
+          <span class="person-name">${escapeHtml(name)}</span>
+          <span class="person-amount ${positive ? "positive" : "negative"}">${text}</span>
+        </div>`;
+    }).join("");
+  }
+
+  renderDebtList(document.getElementById("debts-open-list"), open, { emptyText: "אין חובות פתוחים כרגע" });
+  renderDebtList(document.getElementById("debts-settled-list"), settled.slice(0, 20), { emptyText: "עדיין אין היסטוריה" });
+}
+
+const debtModalOverlay = document.getElementById("debt-modal-overlay");
+document.getElementById("open-add-debt").addEventListener("click", () => debtModalOverlay.classList.remove("hidden"));
+document.getElementById("close-debt-modal").addEventListener("click", () => debtModalOverlay.classList.add("hidden"));
+debtModalOverlay.addEventListener("click", (e) => { if (e.target === debtModalOverlay) debtModalOverlay.classList.add("hidden"); });
+document.getElementById("debt-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = document.getElementById("debt-name").value.trim();
+  const amount = parseFloat(document.getElementById("debt-amount").value);
+  const direction = document.querySelector('input[name="debtDirection"]:checked').value;
+  const note = document.getElementById("debt-note").value.trim();
+  if (!name || !amount || amount <= 0) return;
+  debtsRef.add({ name, amount, direction, note, settled: false, date: firebase.firestore.Timestamp.now() }).then(() => {
+    document.getElementById("debt-form").reset();
+    document.querySelector('input[name="debtDirection"][value="owe"]').checked = true;
+    debtModalOverlay.classList.add("hidden");
+  });
+});
+
+/* ============================================================
+   13) REPORTS VIEW
    ============================================================ */
 document.querySelectorAll("[data-report]").forEach((btn) => {
   btn.addEventListener("click", () => {

@@ -91,6 +91,8 @@ body{
 .hero-figure{font-size:38px;font-weight:800;line-height:1.1;}
 .hero-sub{font-size:13.5px;opacity:.92;margin-top:6px;font-weight:500;}
 .wedding-hero{background:linear-gradient(135deg,#D6577A 0%,#C2570E 100%);}
+.finances-hero{background:linear-gradient(135deg,#7C5CE0 0%,#2F8F86 100%);}
+.debts-hero{background:linear-gradient(135deg,#C2570E 0%,#7C5CE0 100%);}
 
 /* Stat grid */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
@@ -133,6 +135,16 @@ body{
 .expense-row:last-child{border-bottom:none;}
 .row-dot{width:8px;height:8px;min-width:8px;border-radius:50%;}
 .dot-yosef{background:var(--yosef);} .dot-agam{background:var(--agam);} .dot-cash{background:var(--cash);} .dot-savings{background:var(--amber);}
+.dot-debt-owe{background:var(--agam);} .dot-debt-owed{background:var(--green);}
+.row-settle{background:var(--green-tint);color:var(--green);border:none;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;flex-shrink:0;}
+.row-reopen{background:none;border:none;color:var(--yosef);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
+.person-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);}
+.person-row:last-child{border-bottom:none;}
+.person-name{font-weight:700;font-size:14px;}
+.person-amount{font-weight:800;font-size:14px;}
+.person-amount.positive{color:var(--green);}
+.person-amount.negative{color:var(--agam);}
 .row-main{flex:1;min-width:0;}
 .row-title{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .row-meta{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -273,6 +285,8 @@ body{
 .who-option:nth-child(2):has(input:checked){border-color:var(--agam);background:var(--agam-tint);color:var(--agam);}
 .who-option-cash:has(input:checked){border-color:var(--cash);background:var(--cash-tint);color:var(--cash);}
 .who-option-savings:has(input:checked){border-color:var(--amber);background:var(--amber-tint);color:var(--amber);}
+.debt-direction .who-option:first-child:has(input:checked){border-color:var(--agam);background:var(--agam-tint);color:var(--agam);}
+.debt-direction .who-option:last-child:has(input:checked){border-color:var(--green);background:var(--green-tint);color:var(--green);}
 
 .submit-btn{width:100%;border:none;border-radius:var(--radius-sm);padding:14px;background:var(--gradient);color:#fff;font-size:15.5px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
 
