@@ -2,11 +2,17 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>הקופה המשותפת | יוסף ואגם</title>
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="הקופה המשותפת">
+<meta name="theme-color" content="#1F8A7D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=6">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -167,60 +173,9 @@
   <section class="view hidden" data-view="budget">
     <div class="panel">
       <div class="panel-head"><h2>תקציב חודשי לפי קטגוריה</h2></div>
-      <p class="panel-desc">הגדירו תקרה חודשית לכל קטגוריה ועקבו כמה כבר הוצאתם החודש ביחס אליה. (לתקציב החתונה יש מסך נפרד)</p>
+      <p class="panel-desc">הגדירו תקרה חודשית לכל קטגוריה ועקבו כמה כבר הוצאתם החודש ביחס אליה.</p>
       <div id="budget-rows" class="budget-rows"></div>
       <button id="save-budget" class="submit-btn">שמירת תקציב</button>
-    </div>
-  </section>
-
-  <!-- ============== WEDDING VIEW ============== -->
-  <section class="view hidden" data-view="wedding">
-    <div class="hero-card wedding-hero">
-      <div class="hero-top">
-        <span class="hero-eyebrow">תקציב החתונה 💍</span>
-        <span class="hero-badge" id="wedding-countdown">—</span>
-      </div>
-      <div class="hero-figure" id="wedding-spent">0 ₪</div>
-      <div class="hero-sub" id="wedding-sub">מתוך תקציב שטרם הוגדר</div>
-    </div>
-    <div class="panel">
-      <div class="cat-track wedding-track">
-        <div class="cat-fill" id="wedding-progress" style="width:0%"></div>
-      </div>
-      <p class="panel-desc" id="wedding-remaining"></p>
-      <button id="open-add-wedding" class="submit-btn">+ הוצאה חדשה לחתונה</button>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>פילוח לפי ספק</h2></div>
-      <div id="wedding-pie-wrap"></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>תקציב לכל ספק</h2></div>
-      <div id="vendor-budget-rows" class="budget-rows"></div>
-      <div class="add-vendor-row">
-        <input type="text" id="new-vendor-name" placeholder="שם ספק חדש">
-        <input type="number" id="new-vendor-budget" placeholder="תקציב מתוכנן" min="0">
-        <button id="add-vendor-btn" class="mini-btn">הוסף</button>
-      </div>
-      <button id="save-vendor-budgets" class="submit-btn">שמירה</button>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>כל הוצאות החתונה</h2></div>
-      <div id="wedding-expense-list" class="expense-list">
-        <p class="empty-hint">עדיין אין הוצאות חתונה</p>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>הגדרת תקציב כולל</h2></div>
-      <label class="field">
-        <span>סכום יעד (₪)</span>
-        <input type="number" id="wedding-target-input" min="0" step="1000">
-      </label>
-      <button id="save-wedding" class="submit-btn">שמירה</button>
     </div>
   </section>
 
@@ -278,15 +233,15 @@
     </div>
   </section>
 
-  <!-- ============== RECURRING EXPENSES VIEW ============== -->
+  <!-- ============== RECURRING (EXPENSE + INCOME) VIEW ============== -->
   <section class="view hidden" data-view="recurring">
     <div class="panel">
-      <div class="panel-head"><h2>הוצאות קבועות</h2></div>
-      <p class="panel-desc">הגדירו חיוב חוזר (שכירות, מנויים וכו') ובכל פעם שנכנסים לאפליקציה היא בודקת אם הגיע הזמן לחיוב הבא ומוסיפה אותו אוטומטית להוצאות.</p>
-      <button id="open-add-recurring" class="submit-btn">+ הוצאה קבועה חדשה</button>
+      <div class="panel-head"><h2>תנועות קבועות</h2></div>
+      <p class="panel-desc">הגדירו חיוב או זיכוי חוזר (שכירות, משכורת, מנויים וכו') ובכל פעם שנכנסים לאפליקציה היא בודקת אם הגיע הזמן לתנועה הבאה ומוסיפה אותה אוטומטית.</p>
+      <button id="open-add-recurring" class="submit-btn">+ תנועה קבועה חדשה</button>
     </div>
     <div class="panel">
-      <div id="recurring-list"><p class="empty-hint">עדיין אין הוצאות קבועות</p></div>
+      <div id="recurring-list"><p class="empty-hint">עדיין אין תנועות קבועות</p></div>
     </div>
   </section>
 
@@ -337,16 +292,20 @@
 <!-- Floating add button -->
 <button id="open-add" class="fab" aria-label="הוסף">+</button>
 
-<!-- Add recurring expense modal -->
+<!-- Add recurring expense/income modal -->
 <div id="recurring-modal-overlay" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-head">
-      <h3>הוצאה קבועה חדשה</h3>
+      <h3 id="recurring-modal-title">תנועה קבועה חדשה</h3>
       <button id="close-recurring-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <div class="tab-switch">
+      <button type="button" class="tab-btn active" data-rtype="expense">הוצאה</button>
+      <button type="button" class="tab-btn" data-rtype="income">הכנסה</button>
     </div>
     <form id="recurring-form">
       <label class="field">
-        <span>שם ההוצאה</span>
+        <span id="recurring-name-label">שם ההוצאה</span>
         <input type="text" id="recurring-name" required placeholder="לדוגמה: שכירות, נטפליקס, חדר כושר">
       </label>
       <label class="field">
@@ -358,7 +317,7 @@
         <select id="recurring-category"></select>
       </label>
       <label class="field">
-        <span>תדירות חיוב</span>
+        <span>תדירות</span>
         <select id="recurring-frequency">
           <option value="monthly">חודשי</option>
           <option value="weekly">שבועי</option>
@@ -366,7 +325,7 @@
         </select>
       </label>
       <div class="field">
-        <span>ממי זה יוצא?</span>
+        <span id="recurring-account-label">ממי זה יוצא?</span>
         <div class="who-pay">
           <label class="who-option">
             <input type="radio" name="recurringAccount" value="יוסף" checked>
@@ -386,7 +345,7 @@
           </label>
         </div>
       </div>
-      <button type="submit" class="submit-btn">הוספה + חיוב ראשון עכשיו</button>
+      <button type="submit" class="submit-btn" id="recurring-submit-btn">הוספה + חיוב ראשון עכשיו</button>
     </form>
   </div>
 </div>
@@ -447,15 +406,11 @@
       </label>
       <label class="field">
         <span id="description-label">על מה?</span>
-        <input type="text" id="description" placeholder="לדוגמה: סופר, דלק, מתנה לחתונה">
+        <input type="text" id="description" placeholder="לדוגמה: סופר, דלק, בילוי">
       </label>
       <label class="field">
         <span>קטגוריה</span>
         <select id="category"></select>
-      </label>
-      <label class="field hidden" id="vendor-field">
-        <span>איזה ספק?</span>
-        <input type="text" id="vendor" placeholder="לדוגמה: צלם, אולם, קייטרינג">
       </label>
       <div class="field">
         <span id="account-label">מי שילם?</span>
@@ -521,11 +476,7 @@
       </button>
       <button class="drawer-item" data-view="recurring">
         <span class="drawer-icon">🔁</span>
-        <span class="drawer-item-text"><span class="drawer-item-title">הוצאות קבועות</span><span class="drawer-item-sub">חיובים חוזרים</span></span>
-      </button>
-      <button class="drawer-item" data-view="wedding">
-        <span class="drawer-icon">💍</span>
-        <span class="drawer-item-text"><span class="drawer-item-title">חתונה</span><span class="drawer-item-sub">תקציב לפי ספקים</span></span>
+        <span class="drawer-item-text"><span class="drawer-item-title">תנועות קבועות</span><span class="drawer-item-sub">הכנסות והוצאות חוזרות</span></span>
       </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
@@ -546,6 +497,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

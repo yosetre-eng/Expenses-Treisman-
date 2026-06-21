@@ -32,8 +32,9 @@ currentMonth.setHours(0, 0, 0, 0);
 let currentView = "dashboard";
 let modalType = "expense";
 let reportType = "expenses";
+let recurringModalType = "expense";
 
-const DEFAULT_CATEGORIES = ["אוכל", "חתונה", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
+const DEFAULT_CATEGORIES = ["אוכל", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
 const ACCOUNTS = ["יוסף", "אגם", "מזומן"];
 const BALANCE_ACCOUNTS = ["יוסף", "אגם", "מזומן", "חיסכון"];
@@ -43,8 +44,6 @@ let config = {
   categories: DEFAULT_CATEGORIES,
   incomeCategories: DEFAULT_INCOME_CATEGORIES,
   budgets: {},
-  weddingTarget: 220000,
-  weddingVendorBudgets: {},
   accountBalances: { "יוסף": 0, "אגם": 0, "מזומן": 0 },
   savingsGoals: []
 };
@@ -89,8 +88,6 @@ configRef.onSnapshot((doc) => {
     categories: data.categories && data.categories.length ? data.categories : DEFAULT_CATEGORIES,
     incomeCategories: data.incomeCategories && data.incomeCategories.length ? data.incomeCategories : DEFAULT_INCOME_CATEGORIES,
     budgets: data.budgets || {},
-    weddingTarget: data.weddingTarget || 220000,
-    weddingVendorBudgets: data.weddingVendorBudgets || {},
     accountBalances: data.accountBalances || { "יוסף": 0, "אגם": 0, "מזומן": 0 },
     savingsGoals: data.savingsGoals || []
   };
@@ -127,7 +124,6 @@ function renderCurrentView() {
   else if (currentView === "income") renderIncomeView();
   else if (currentView === "finances") renderFinancesView();
   else if (currentView === "budget") renderBudgetView();
-  else if (currentView === "wedding") renderWeddingView();
   else if (currentView === "reports") renderReportsView();
   else if (currentView === "debts") renderDebtsView();
   else if (currentView === "recurring") renderRecurringView();
@@ -172,11 +168,6 @@ function groupByCategory(list) {
   list.forEach((e) => { const cat = e.category || "אחר"; map[cat] = (map[cat] || 0) + Number(e.amount || 0); });
   return map;
 }
-function groupByVendor(list) {
-  const map = {};
-  list.forEach((e) => { const v = e.vendor || "ללא ספק"; map[v] = (map[v] || 0) + Number(e.amount || 0); });
-  return map;
-}
 function computeAccountBalance(account) {
   const opening = (config.accountBalances && config.accountBalances[account]) || 0;
   const inc = sumBy(allIncome, (i) => i.account === account);
@@ -200,7 +191,6 @@ function populateCategorySelects() {
     const list = modalType === "income" ? config.incomeCategories : config.categories;
     modalSelect.innerHTML = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     if ([...modalSelect.options].some((o) => o.value === prev)) modalSelect.value = prev;
-    toggleVendorField();
   }
   const filterExpense = document.getElementById("filter-category");
   if (filterExpense) {
@@ -217,7 +207,8 @@ function populateCategorySelects() {
   const recurringCategory = document.getElementById("recurring-category");
   if (recurringCategory) {
     const prev = recurringCategory.value;
-    recurringCategory.innerHTML = config.categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    const list = recurringModalType === "income" ? config.incomeCategories : config.categories;
+    recurringCategory.innerHTML = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     if ([...recurringCategory.options].some((o) => o.value === prev)) recurringCategory.value = prev;
   }
 }
@@ -228,7 +219,6 @@ function rowHtml(e, type) {
   const who = type === "income" ? e.account : e.paidBy;
   const dotClass = who === "יוסף" ? "dot-yosef" : who === "אגם" ? "dot-agam" : who === "מזומן" ? "dot-cash" : "dot-savings";
   const sourceTag = e.source === "telegram" ? " · טלגרם" : e.source === "recurring" ? " · קבוע 🔁" : "";
-  const vendorTag = e.vendor ? ` · ${escapeHtml(e.vendor)}` : "";
   const amountClass = type === "income" ? "row-amount income" : "row-amount";
   const prefix = type === "income" ? "+" : "";
   return `
@@ -236,7 +226,7 @@ function rowHtml(e, type) {
       <span class="row-dot ${dotClass}"></span>
       <div class="row-main">
         <div class="row-title">${escapeHtml(e.description || e.category || (type === "income" ? "הכנסה" : "הוצאה"))}</div>
-        <div class="row-meta">${escapeHtml(e.category || "אחר")}${vendorTag} · ${escapeHtml(who || "")} · ${dateStr}${sourceTag}</div>
+        <div class="row-meta">${escapeHtml(e.category || "אחר")} · ${escapeHtml(who || "")} · ${dateStr}${sourceTag}</div>
       </div>
       <span class="${amountClass}">${prefix}${Math.round(e.amount).toLocaleString()}₪</span>
       <button class="row-delete" data-id="${e.id}" data-type="${type}" aria-label="מחק">✕</button>
@@ -372,7 +362,7 @@ function renderExpensesView() {
   const cat = document.getElementById("filter-category").value;
   const filtered = allExpenses.filter((e) => {
     const matchesCat = !cat || e.category === cat;
-    const matchesTerm = !term || (e.description || "").toLowerCase().includes(term) || (e.category || "").toLowerCase().includes(term) || (e.vendor || "").toLowerCase().includes(term);
+    const matchesTerm = !term || (e.description || "").toLowerCase().includes(term) || (e.category || "").toLowerCase().includes(term);
     return matchesCat && matchesTerm;
   });
   renderRows(document.getElementById("full-expense-list"), filtered, "expense");
@@ -483,12 +473,12 @@ document.getElementById("add-savings-btn").addEventListener("click", () => {
 });
 
 /* ============================================================
-   10) BUDGET VIEW (excludes "חתונה" - it has its own dedicated view)
+   10) BUDGET VIEW
    ============================================================ */
 function renderBudgetView() {
   const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0, 0, 0, 0);
   const spentMap = groupByCategory(getMonthList(allExpenses, thisMonth));
-  const cats = config.categories.filter((c) => c !== "חתונה");
+  const cats = config.categories;
   const container = document.getElementById("budget-rows");
   container.innerHTML = cats.map((cat) => {
     const budget = config.budgets[cat] || 0;
@@ -513,102 +503,7 @@ document.getElementById("save-budget").addEventListener("click", () => {
 });
 
 /* ============================================================
-   11) WEDDING VIEW
-   ============================================================ */
-function getWeddingExpenses() {
-  return allExpenses.filter((e) => e.category === "חתונה");
-}
-function renderWeddingView() {
-  const weddingExpenses = getWeddingExpenses();
-  const target = config.weddingTarget || 0;
-  const spent = sumBy(weddingExpenses, () => true);
-  const pct = target > 0 ? Math.min((spent / target) * 100, 100) : 0;
-  const over = target > 0 && spent > target;
-
-  document.getElementById("wedding-spent").textContent = `${Math.round(spent).toLocaleString()} ₪`;
-  document.getElementById("wedding-sub").textContent = target > 0 ? `מתוך תקציב של ${Math.round(target).toLocaleString()}₪` : "הגדירו תקציב יעד למטה";
-
-  const fill = document.getElementById("wedding-progress");
-  fill.style.width = `${pct}%`;
-  fill.classList.toggle("over-budget", over);
-
-  const remaining = target - spent;
-  document.getElementById("wedding-remaining").textContent = target <= 0 ? "" :
-    remaining >= 0 ? `נשארו ${Math.round(remaining).toLocaleString()}₪ מהתקציב` : `חרגתם ב-${Math.round(Math.abs(remaining)).toLocaleString()}₪ מהתקציב המתוכנן`;
-
-  const weddingDate = new Date(2026, 10, 1);
-  const daysLeft = Math.ceil((weddingDate - new Date()) / 86400000);
-  document.getElementById("wedding-countdown").textContent = daysLeft > 0 ? `~${daysLeft} ימים` : "מזל טוב! 🎉";
-
-  document.getElementById("wedding-target-input").value = target || "";
-
-  renderPieChart(document.getElementById("wedding-pie-wrap"), groupByVendor(weddingExpenses), { emptyText: "הוסיפו הוצאת חתונה כדי לראות פילוח" });
-
-  const vendorSpent = groupByVendor(weddingExpenses);
-  const vendorNames = Array.from(new Set([...Object.keys(config.weddingVendorBudgets || {}), ...Object.keys(vendorSpent)]));
-  const vendorContainer = document.getElementById("vendor-budget-rows");
-  if (vendorNames.length === 0) {
-    vendorContainer.innerHTML = `<p class="empty-hint">עדיין אין ספקים</p>`;
-  } else {
-    vendorContainer.innerHTML = vendorNames.map((v) => {
-      const budget = (config.weddingVendorBudgets || {})[v] || 0;
-      const actual = vendorSpent[v] || 0;
-      const vpct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
-      const vover = budget > 0 && actual > budget;
-      return `
-        <div class="budget-row">
-          <div class="budget-row-top">
-            <span>${escapeHtml(v)}</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <input type="number" min="0" step="100" data-vendor="${escapeHtml(v)}" value="${budget || ""}" placeholder="תקציב">
-              <button class="budget-row-remove" data-vendor-remove="${escapeHtml(v)}">✕</button>
-            </div>
-          </div>
-          <div class="cat-track"><div class="cat-fill ${vover ? "over-budget" : ""}" style="width:${vpct}%"></div></div>
-          <span class="budget-actual">${Math.round(actual).toLocaleString()}₪ הוצא בפועל</span>
-        </div>`;
-    }).join("");
-    vendorContainer.querySelectorAll("[data-vendor-remove]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const newBudgets = { ...(config.weddingVendorBudgets || {}) };
-        delete newBudgets[btn.dataset.vendorRemove];
-        configRef.set({ weddingVendorBudgets: newBudgets }, { merge: true });
-      });
-    });
-  }
-
-  renderRows(document.getElementById("wedding-expense-list"), weddingExpenses, "expense", { emptyText: "עדיין אין הוצאות חתונה" });
-}
-
-document.getElementById("add-vendor-btn").addEventListener("click", () => {
-  const nameInput = document.getElementById("new-vendor-name");
-  const budgetInput = document.getElementById("new-vendor-budget");
-  const name = nameInput.value.trim();
-  const budget = parseFloat(budgetInput.value) || 0;
-  if (!name) return;
-  configRef.set({ weddingVendorBudgets: { ...(config.weddingVendorBudgets || {}), [name]: budget } }, { merge: true }).then(() => {
-    nameInput.value = ""; budgetInput.value = "";
-  });
-});
-document.getElementById("save-vendor-budgets").addEventListener("click", () => {
-  const newBudgets = { ...(config.weddingVendorBudgets || {}) };
-  document.querySelectorAll("#vendor-budget-rows input[data-vendor]").forEach((input) => {
-    newBudgets[input.dataset.vendor] = parseFloat(input.value) || 0;
-  });
-  configRef.set({ weddingVendorBudgets: newBudgets }, { merge: true }).then(() => alert("נשמר ✅"));
-});
-document.getElementById("save-wedding").addEventListener("click", () => {
-  const val = parseFloat(document.getElementById("wedding-target-input").value) || 0;
-  configRef.set({ weddingTarget: val }, { merge: true }).then(() => alert("נשמר ✅"));
-});
-document.getElementById("open-add-wedding").addEventListener("click", () => {
-  openModal("expense");
-  document.getElementById("category").value = "חתונה";
-  toggleVendorField();
-});
-
-/* ============================================================
-   12) RECURRING EXPENSES (auto-generated on a schedule)
+   12) RECURRING (EXPENSE + INCOME, auto-generated on a schedule)
    ============================================================ */
 function addPeriod(date, frequency) {
   const d = new Date(date);
@@ -621,17 +516,18 @@ function runRecurringCatchUp() {
   const now = new Date();
   allRecurring.forEach((r) => {
     if (!r.active) return;
+    const type = r.type || "expense";
     let last = r.lastGenerated ? toDate(r.lastGenerated) : (r.createdAt ? toDate(r.createdAt) : now);
     let next = addPeriod(last, r.frequency);
     let count = 0;
     const batch = db.batch();
     let generated = false;
     while (next <= now && count < 24) {
-      const ref = expensesRef.doc();
-      batch.set(ref, {
-        amount: r.amount, description: r.name, category: r.category, paidBy: r.account,
-        vendor: "", source: "recurring", date: firebase.firestore.Timestamp.fromDate(next)
-      });
+      const targetRef = type === "income" ? incomeRef.doc() : expensesRef.doc();
+      const entry = type === "income"
+        ? { amount: r.amount, description: r.name, category: r.category, account: r.account, source: "recurring", date: firebase.firestore.Timestamp.fromDate(next) }
+        : { amount: r.amount, description: r.name, category: r.category, paidBy: r.account, source: "recurring", date: firebase.firestore.Timestamp.fromDate(next) };
+      batch.set(targetRef, entry);
       last = next;
       next = addPeriod(next, r.frequency);
       count++;
@@ -644,17 +540,21 @@ function runRecurringCatchUp() {
   });
 }
 function recurringRowHtml(r) {
+  const type = r.type || "expense";
   const freqLabel = r.frequency === "weekly" ? "שבועי" : r.frequency === "yearly" ? "שנתי" : "חודשי";
+  const typeLabel = type === "income" ? "הכנסה" : "הוצאה";
   const last = r.lastGenerated ? toDate(r.lastGenerated) : (r.createdAt ? toDate(r.createdAt) : new Date());
   const next = addPeriod(last, r.frequency);
   const nextStr = next.toLocaleDateString("he-IL", { day: "numeric", month: "short", year: "numeric" });
+  const amountClass = type === "income" ? "recurring-amount income" : "recurring-amount";
+  const prefix = type === "income" ? "+" : "";
   return `
     <div class="recurring-row ${r.active ? "" : "recurring-paused"}">
       <div class="recurring-row-top">
-        <div><strong>${escapeHtml(r.name)}</strong><span class="recurring-badge">${freqLabel}</span></div>
-        <span class="recurring-amount">${Math.round(r.amount).toLocaleString()}₪</span>
+        <div><strong>${escapeHtml(r.name)}</strong><span class="recurring-badge recurring-badge-${type}">${typeLabel} · ${freqLabel}</span></div>
+        <span class="${amountClass}">${prefix}${Math.round(r.amount).toLocaleString()}₪</span>
       </div>
-      <div class="recurring-meta">${escapeHtml(r.category)} · ${escapeHtml(r.account)} · החיוב הבא: ${r.active ? nextStr : "מושהה"}</div>
+      <div class="recurring-meta">${escapeHtml(r.category)} · ${escapeHtml(r.account)} · ${type === "income" ? "הזיכוי הבא" : "החיוב הבא"}: ${r.active ? nextStr : "מושהה"}</div>
       <div class="recurring-actions">
         <button class="mini-btn recurring-toggle" data-id="${r.id}" data-active="${r.active}">${r.active ? "השהיה" : "הפעלה"}</button>
         <button class="row-delete recurring-delete" data-id="${r.id}" aria-label="מחק">✕ מחיקה</button>
@@ -664,7 +564,7 @@ function recurringRowHtml(r) {
 function renderRecurringView() {
   const container = document.getElementById("recurring-list");
   if (allRecurring.length === 0) {
-    container.innerHTML = `<p class="empty-hint">עדיין אין הוצאות קבועות</p>`;
+    container.innerHTML = `<p class="empty-hint">עדיין אין תנועות קבועות</p>`;
     return;
   }
   container.innerHTML = allRecurring.map(recurringRowHtml).join("");
@@ -676,18 +576,30 @@ function renderRecurringView() {
   });
   container.querySelectorAll(".recurring-delete").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (confirm("למחוק את ההוצאה הקבועה? הוצאות שכבר נוצרו מהעבר לא יימחקו.")) recurringRef.doc(btn.dataset.id).delete();
+      if (confirm("למחוק את התנועה הקבועה? תנועות שכבר נוצרו מהעבר לא יימחקו.")) recurringRef.doc(btn.dataset.id).delete();
     });
   });
 }
 
+function setRecurringModalType(type) {
+  recurringModalType = type || "expense";
+  document.querySelectorAll("#recurring-modal-overlay [data-rtype]").forEach((b) => b.classList.toggle("active", b.dataset.rtype === recurringModalType));
+  document.getElementById("recurring-modal-title").textContent = recurringModalType === "income" ? "הכנסה קבועה חדשה" : "הוצאה קבועה חדשה";
+  document.getElementById("recurring-name-label").textContent = recurringModalType === "income" ? "שם ההכנסה" : "שם ההוצאה";
+  document.getElementById("recurring-account-label").textContent = recurringModalType === "income" ? "לאיזה ארנק נכנס?" : "ממי זה יוצא?";
+  document.getElementById("recurring-submit-btn").textContent = recurringModalType === "income" ? "הוספה + זיכוי ראשון עכשיו" : "הוספה + חיוב ראשון עכשיו";
+  populateCategorySelects();
+}
 const recurringModalOverlay = document.getElementById("recurring-modal-overlay");
 document.getElementById("open-add-recurring").addEventListener("click", () => {
-  populateCategorySelects();
+  setRecurringModalType("expense");
   recurringModalOverlay.classList.remove("hidden");
 });
 document.getElementById("close-recurring-modal").addEventListener("click", () => recurringModalOverlay.classList.add("hidden"));
 recurringModalOverlay.addEventListener("click", (e) => { if (e.target === recurringModalOverlay) recurringModalOverlay.classList.add("hidden"); });
+document.querySelectorAll("#recurring-modal-overlay [data-rtype]").forEach((btn) => {
+  btn.addEventListener("click", () => setRecurringModalType(btn.dataset.rtype));
+});
 document.getElementById("recurring-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const name = document.getElementById("recurring-name").value.trim();
@@ -697,8 +609,12 @@ document.getElementById("recurring-form").addEventListener("submit", (e) => {
   const account = document.querySelector('input[name="recurringAccount"]:checked').value;
   if (!name || !amount || amount <= 0) return;
   const now = firebase.firestore.Timestamp.now();
-  recurringRef.add({ name, amount, category, frequency, account, active: true, createdAt: now, lastGenerated: now }).then(() => {
-    expensesRef.add({ amount, description: name, category, paidBy: account, vendor: "", source: "recurring", date: now });
+  recurringRef.add({ name, amount, category, frequency, account, type: recurringModalType, active: true, createdAt: now, lastGenerated: now }).then(() => {
+    if (recurringModalType === "income") {
+      incomeRef.add({ amount, description: name, category, account, source: "recurring", date: now });
+    } else {
+      expensesRef.add({ amount, description: name, category, paidBy: account, source: "recurring", date: now });
+    }
     document.getElementById("recurring-form").reset();
     document.querySelector('input[name="recurringAccount"][value="יוסף"]').checked = true;
     recurringModalOverlay.classList.add("hidden");
@@ -927,12 +843,12 @@ function csvField(val) {
   return s;
 }
 function exportCSV() {
-  const rows = [["סוג", "תאריך", "תיאור", "קטגוריה", "ספק", "ארנק", "סכום"]];
+  const rows = [["סוג", "תאריך", "תיאור", "קטגוריה", "ארנק", "סכום"]];
   allExpenses.forEach((e) => {
-    rows.push(["הוצאה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", e.vendor || "", e.paidBy || "", Math.round(e.amount)]);
+    rows.push(["הוצאה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", e.paidBy || "", Math.round(e.amount)]);
   });
   allIncome.forEach((e) => {
-    rows.push(["הכנסה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", "", e.account || "", Math.round(e.amount)]);
+    rows.push(["הכנסה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", e.account || "", Math.round(e.amount)]);
   });
   const csv = rows.map((r) => r.map(csvField).join(",")).join("\r\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -975,13 +891,6 @@ document.querySelectorAll("#modal-overlay [data-type]").forEach((btn) => {
   btn.addEventListener("click", () => openModal(btn.dataset.type));
 });
 
-function toggleVendorField() {
-  const vendorField = document.getElementById("vendor-field");
-  const isWedding = modalType === "expense" && document.getElementById("category").value === "חתונה";
-  vendorField.classList.toggle("hidden", !isWedding);
-}
-document.getElementById("category").addEventListener("change", toggleVendorField);
-
 document.getElementById("expense-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const amount = parseFloat(document.getElementById("amount").value);
@@ -993,8 +902,7 @@ document.getElementById("expense-form").addEventListener("submit", (e) => {
   if (modalType === "income") {
     incomeRef.add({ amount, description, category, account, source: "web", date: firebase.firestore.Timestamp.now() }).then(resetAndClose);
   } else {
-    const vendor = category === "חתונה" ? document.getElementById("vendor").value.trim() : "";
-    expensesRef.add({ amount, description, category, paidBy: account, vendor, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
+    expensesRef.add({ amount, description, category, paidBy: account, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
       if (account === "אגם") showToast("הופההה האישה שילמה מי היה מאמין 😂");
       else if (account === "יוסף") showToast("סוף סוף הגבר משלם 😎");
       resetAndClose();
