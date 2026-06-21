@@ -54,9 +54,9 @@
         <span class="stat-label">סך הוצאות</span>
         <span class="stat-value" id="stat-total">0₪</span>
       </div>
-      <div class="stat-card tint-peach">
-        <span class="stat-label">מס׳ הוצאות</span>
-        <span class="stat-value" id="stat-count">0</span>
+      <div class="stat-card tint-green">
+        <span class="stat-label">סך הכנסות</span>
+        <span class="stat-value" id="stat-income">0₪</span>
       </div>
       <div class="stat-card tint-teal">
         <span class="stat-label">שילם יוסף</span>
@@ -65,6 +65,18 @@
       <div class="stat-card tint-rose">
         <span class="stat-label">שילמה אגם</span>
         <span class="stat-value" id="stat-agam">0₪</span>
+      </div>
+    </div>
+
+    <div class="panel-head snapshot-head"><h2>תמונת מצב כללית</h2></div>
+    <div class="stat-grid">
+      <div class="stat-card tint-purple">
+        <span class="stat-label">יתרת קופה כוללת</span>
+        <span class="stat-value" id="stat-balance">0₪</span>
+      </div>
+      <div class="stat-card tint-amber">
+        <span class="stat-label">נחסך עד כה</span>
+        <span class="stat-value" id="stat-saved">0₪</span>
       </div>
     </div>
 
@@ -86,7 +98,7 @@
     </div>
   </section>
 
-  <!-- ============== EXPENSES VIEW (full ledger) ============== -->
+  <!-- ============== EXPENSES VIEW ============== -->
   <section class="view hidden" data-view="expenses">
     <div class="panel">
       <div class="panel-head"><h2>הוצאות</h2></div>
@@ -102,11 +114,52 @@
     </div>
   </section>
 
+  <!-- ============== INCOME VIEW ============== -->
+  <section class="view hidden" data-view="income">
+    <div class="panel">
+      <div class="panel-head"><h2>הכנסות</h2></div>
+      <div class="search-row">
+        <input type="text" id="income-search-input" placeholder="חיפוש לפי תיאור...">
+        <select id="income-filter-category"><option value="">כל הקטגוריות</option></select>
+      </div>
+    </div>
+    <div class="panel">
+      <div id="full-income-list" class="expense-list">
+        <p class="empty-hint">אין הכנסות תואמות</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== FINANCES VIEW (balances + savings) ============== -->
+  <section class="view hidden" data-view="finances">
+    <div class="panel">
+      <div class="panel-head"><h2>יתרות נוכחיות</h2></div>
+      <p class="panel-desc">יתרת פתיחה + הכנסות − הוצאות, לכל ארנק בנפרד.</p>
+      <div id="balance-cards" class="balance-cards"></div>
+      <div class="balance-card balance-total" id="balance-total-card">
+        <span class="balance-name">סה״כ ביחד</span>
+        <span class="balance-amount" id="balance-total-amount">0₪</span>
+      </div>
+      <button id="save-balances" class="submit-btn">שמירת יתרות פתיחה</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>חסכונות</h2></div>
+      <p class="panel-desc">יעדי חיסכון משותפים - עדכנו את הסכום שכבר נחסך בכל פעם שמפקידים.</p>
+      <div id="savings-list" class="savings-list"></div>
+      <div class="add-vendor-row">
+        <input type="text" id="new-savings-name" placeholder="שם היעד (לדוגמה: קרן חירום)">
+        <input type="number" id="new-savings-target" placeholder="סכום יעד" min="0">
+        <button id="add-savings-btn" class="mini-btn">הוסף</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ============== BUDGET VIEW ============== -->
   <section class="view hidden" data-view="budget">
     <div class="panel">
       <div class="panel-head"><h2>תקציב חודשי לפי קטגוריה</h2></div>
-      <p class="panel-desc">הגדירו תקרה חודשית לכל קטגוריה ועקבו כמה כבר הוצאתם החודש ביחס אליה.</p>
+      <p class="panel-desc">הגדירו תקרה חודשית לכל קטגוריה ועקבו כמה כבר הוצאתם החודש ביחס אליה. (לתקציב החתונה יש מסך נפרד)</p>
       <div id="budget-rows" class="budget-rows"></div>
       <button id="save-budget" class="submit-btn">שמירת תקציב</button>
     </div>
@@ -116,7 +169,7 @@
   <section class="view hidden" data-view="wedding">
     <div class="hero-card wedding-hero">
       <div class="hero-top">
-        <span class="hero-eyebrow">חיסכון לחתונה 💍</span>
+        <span class="hero-eyebrow">תקציב החתונה 💍</span>
         <span class="hero-badge" id="wedding-countdown">—</span>
       </div>
       <div class="hero-figure" id="wedding-spent">0 ₪</div>
@@ -127,12 +180,37 @@
         <div class="cat-fill" id="wedding-progress" style="width:0%"></div>
       </div>
       <p class="panel-desc" id="wedding-remaining"></p>
+      <button id="open-add-wedding" class="submit-btn">+ הוצאה חדשה לחתונה</button>
     </div>
+
     <div class="panel">
-      <div class="panel-head"><h2>הגדרת תקציב חתונה</h2></div>
+      <div class="panel-head"><h2>פילוח לפי ספק</h2></div>
+      <div id="wedding-pie-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>תקציב לכל ספק</h2></div>
+      <div id="vendor-budget-rows" class="budget-rows"></div>
+      <div class="add-vendor-row">
+        <input type="text" id="new-vendor-name" placeholder="שם ספק חדש">
+        <input type="number" id="new-vendor-budget" placeholder="תקציב מתוכנן" min="0">
+        <button id="add-vendor-btn" class="mini-btn">הוסף</button>
+      </div>
+      <button id="save-vendor-budgets" class="submit-btn">שמירה</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>כל הוצאות החתונה</h2></div>
+      <div id="wedding-expense-list" class="expense-list">
+        <p class="empty-hint">עדיין אין הוצאות חתונה</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>הגדרת תקציב כולל</h2></div>
       <label class="field">
         <span>סכום יעד (₪)</span>
-        <input type="number" id="wedding-target-input" min="0" step="100">
+        <input type="number" id="wedding-target-input" min="0" step="1000">
       </label>
       <button id="save-wedding" class="submit-btn">שמירה</button>
     </div>
@@ -141,43 +219,63 @@
   <!-- ============== REPORTS VIEW ============== -->
   <section class="view hidden" data-view="reports">
     <div class="panel">
-      <div class="panel-head"><h2>מגמה חודשית</h2></div>
-      <div id="monthly-chart" class="monthly-chart"></div>
+      <div class="tab-switch">
+        <button class="tab-btn active" data-report="expenses">הוצאות</button>
+        <button class="tab-btn" data-report="income">הכנסות</button>
+      </div>
+      <div class="panel-head"><h2 id="pie-title">פילוח הוצאות (מאז ההתחלה)</h2></div>
+      <div id="report-pie-wrap"></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h2>סה״כ לפי קטגוריה (מאז ההתחלה)</h2></div>
-      <div id="alltime-categories" class="category-bars"></div>
+      <div class="panel-head"><h2>תזרים חודשי (הכנסות מול הוצאות)</h2></div>
+      <div id="monthly-chart" class="monthly-chart"></div>
+      <div class="chart-legend">
+        <span><i class="legend-dot dot-income"></i> הכנסות</span>
+        <span><i class="legend-dot dot-expense"></i> הוצאות</span>
+      </div>
     </div>
   </section>
 
   <!-- ============== SETTINGS VIEW ============== -->
   <section class="view hidden" data-view="settings">
     <div class="panel">
-      <div class="panel-head"><h2>ניהול קטגוריות</h2></div>
+      <div class="panel-head"><h2>קטגוריות הוצאה</h2></div>
       <div id="category-manage-list" class="category-manage-list"></div>
       <div class="add-category-row">
         <input type="text" id="new-category-input" placeholder="קטגוריה חדשה...">
         <button id="add-category-btn" class="mini-btn">הוסף</button>
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-head"><h2>קטגוריות הכנסה</h2></div>
+      <div id="income-category-manage-list" class="category-manage-list"></div>
+      <div class="add-category-row">
+        <input type="text" id="new-income-category-input" placeholder="קטגוריה חדשה...">
+        <button id="add-income-category-btn" class="mini-btn">הוסף</button>
+      </div>
+    </div>
     <div class="panel danger-panel">
       <div class="panel-head"><h2>אזור מסוכן</h2></div>
-      <p class="panel-desc">פעולה זו תמחק לצמיתות את כל ההוצאות שנרשמו - אין דרך לבטל.</p>
-      <button id="clear-all-btn" class="danger-btn">מחיקת כל ההוצאות</button>
+      <p class="panel-desc">מחיקת כל ההוצאות וההכנסות לצמיתות - אין דרך לבטל.</p>
+      <button id="clear-all-btn" class="danger-btn">מחיקת כל הנתונים</button>
     </div>
   </section>
 
 </div>
 
 <!-- Floating add button -->
-<button id="open-add" class="fab" aria-label="הוסף הוצאה">+</button>
+<button id="open-add" class="fab" aria-label="הוסף">+</button>
 
-<!-- Add expense modal -->
+<!-- Add expense/income modal -->
 <div id="modal-overlay" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-head">
-      <h3>הוצאה חדשה</h3>
+      <h3 id="modal-title">תנועה חדשה</h3>
       <button id="close-add" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <div class="tab-switch">
+      <button type="button" class="tab-btn active" data-type="expense">הוצאה</button>
+      <button type="button" class="tab-btn" data-type="income">הכנסה</button>
     </div>
     <form id="expense-form">
       <label class="field">
@@ -185,27 +283,35 @@
         <input type="number" id="amount" inputmode="decimal" min="0" step="0.1" required>
       </label>
       <label class="field">
-        <span>על מה?</span>
+        <span id="description-label">על מה?</span>
         <input type="text" id="description" placeholder="לדוגמה: סופר, דלק, מתנה לחתונה">
       </label>
       <label class="field">
         <span>קטגוריה</span>
         <select id="category"></select>
       </label>
+      <label class="field hidden" id="vendor-field">
+        <span>איזה ספק?</span>
+        <input type="text" id="vendor" placeholder="לדוגמה: צלם, אולם, קייטרינג">
+      </label>
       <div class="field">
-        <span>מי שילם?</span>
+        <span id="account-label">מי שילם?</span>
         <div class="who-pay">
           <label class="who-option">
-            <input type="radio" name="paidBy" value="יוסף" checked>
+            <input type="radio" name="payAccount" value="יוסף" checked>
             <span>יוסף</span>
           </label>
           <label class="who-option">
-            <input type="radio" name="paidBy" value="אגם">
+            <input type="radio" name="payAccount" value="אגם">
             <span>אגם</span>
+          </label>
+          <label class="who-option who-option-cash">
+            <input type="radio" name="payAccount" value="מזומן">
+            <span>מזומן 💵</span>
           </label>
         </div>
       </div>
-      <button type="submit" class="submit-btn">הוסף הוצאה</button>
+      <button type="submit" class="submit-btn" id="submit-btn">הוסף הוצאה</button>
     </form>
   </div>
 </div>
@@ -234,17 +340,25 @@
         <span class="drawer-icon">🧾</span>
         <span class="drawer-item-text"><span class="drawer-item-title">הוצאות</span><span class="drawer-item-sub">כל התנועות</span></span>
       </button>
+      <button class="drawer-item" data-view="income">
+        <span class="drawer-icon">💵</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">הכנסות</span><span class="drawer-item-sub">משכורות ועוד</span></span>
+      </button>
+      <button class="drawer-item" data-view="finances">
+        <span class="drawer-icon">🏦</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">כספים וחיסכון</span><span class="drawer-item-sub">יתרות ויעדים</span></span>
+      </button>
       <button class="drawer-item" data-view="budget">
         <span class="drawer-icon">🎯</span>
         <span class="drawer-item-text"><span class="drawer-item-title">תקציב חודשי</span><span class="drawer-item-sub">יעדים לכל קטגוריה</span></span>
       </button>
       <button class="drawer-item" data-view="wedding">
         <span class="drawer-icon">💍</span>
-        <span class="drawer-item-text"><span class="drawer-item-title">חיסכון לחתונה</span><span class="drawer-item-sub">מעקב תקציב החתונה</span></span>
+        <span class="drawer-item-text"><span class="drawer-item-title">חתונה</span><span class="drawer-item-sub">תקציב לפי ספקים</span></span>
       </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
-        <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">מגמות לאורך זמן</span></span>
+        <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">פיצ׳רים ומגמות</span></span>
       </button>
       <button class="drawer-item" data-view="settings">
         <span class="drawer-icon">⚙️</span>
