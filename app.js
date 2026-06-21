@@ -218,7 +218,7 @@ function rowHtml(e, type) {
   const dateStr = d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
   const who = type === "income" ? e.account : e.paidBy;
   const dotClass = who === "יוסף" ? "dot-yosef" : who === "אגם" ? "dot-agam" : who === "מזומן" ? "dot-cash" : "dot-savings";
-  const sourceTag = e.source === "telegram" ? " · טלגרם" : e.source === "recurring" ? " · קבוע 🔁" : "";
+  const sourceTag = e.source === "telegram" ? " · טלגרם" : e.source === "recurring" ? " · קבוע 🔁" : e.source === "bank-import" ? " · ייבוא בנק 🏦" : "";
   const amountClass = type === "income" ? "row-amount income" : "row-amount";
   const prefix = type === "income" ? "+" : "";
   return `
@@ -868,6 +868,225 @@ document.getElementById("clear-all-btn").addEventListener("click", () => {
     ...allExpenses.map((e) => expensesRef.doc(e.id).delete()),
     ...allIncome.map((e) => incomeRef.doc(e.id).delete())
   ]).then(() => alert("כל הנתונים נמחקו"));
+});
+
+/* ============================================================
+   13.5) BANK CSV IMPORT
+   ============================================================ */
+let importRows = [];
+
+function decodeCSVBuffer(buffer) {
+  const utf8Text = new TextDecoder("utf-8").decode(buffer);
+  const looksBroken = utf8Text.includes("\uFFFD") || !/[\u0590-\u05FF]/.test(utf8Text);
+  if (!looksBroken) return utf8Text;
+  try {
+    return new TextDecoder("windows-1255").decode(buffer);
+  } catch (e) {
+    return utf8Text;
+  }
+}
+
+function parseCSVLine(line) {
+  const cells = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      cells.push(cur); cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  cells.push(cur);
+  return cells.map((c) => c.replace(/[\u200e\u200f]/g, "").trim());
+}
+
+function parseIsraeliDate(str) {
+  const parts = (str || "").split(".");
+  if (parts.length !== 3) return null;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+  return new Date(year, month - 1, day);
+}
+
+function parseAmount(str) {
+  const cleaned = (str || "").replace(/[\u200e\u200f]/g, "").replace(/[^\d.\-]/g, "");
+  return parseFloat(cleaned);
+}
+
+const CATEGORY_KEYWORDS = {
+  "אוכל": ["סופר", "שופרסל", "רמי לוי", "ויקטורי", "מעדני", "מאפי", "לחם", "פיצה", "wolt", "וולט", "קפה", "מסעד", "ארומה", "פסטה", "בורגר", "סושי", "שווארמה", "קצפת", "חלת", "ריבאר", "ממתק", "סטקי", "שפע", "מזון", "קייטרינג", "תן ביס", "זיג זג", "סדש"],
+  "בריאות": ["כללית", "מכבי", "לאומית", "מאוחדת", "בית חולים", "רוקח", "מרקחת", "דראגסטור", "מד\"א", "מגן דוד אדום", "קופת חולים", "סמייל", "ד\"ר", "שיניים", "קליניק"],
+  "תחבורה": ["דלק", "פז ", "פז/", "סונול", "דור אלון", "yellow", "טעינת חשמ", "tesla", "charging", "חניון", "רכב", "אגרה", "כביש 6", "מונית", "gett", "טסלה"],
+  "דיור": ["ארנונה", "עיריי", "עירית", "חשמל", "חברת חשמל", "מים", "תאגיד מים", " גז ", "ועד בית", "שכירות", "משכנתא", "בזק", "פרטנר", "סלקום", "הוט ", "אינטרנט"],
+  "בילויים": ["קולנוע", "סינמה", "תיאטרון", "הופע", "נטפליקס", "ספוטיפיי", "סטימצקי", "מלון", "נופש", "לוטו", "טוטו", "פיס", "הימור", "winner", "פרחים", "לרקוד"]
+};
+function guessCategory(desc) {
+  const lower = (desc || "").toLowerCase();
+  for (const cat in CATEGORY_KEYWORDS) {
+    if (CATEGORY_KEYWORDS[cat].some((w) => lower.includes(w.toLowerCase()))) return cat;
+  }
+  return "אחר";
+}
+
+function isTransferLike(desc, type) {
+  if (type !== "expense") return false;
+  return /העברה|ני"ע|ניע|חיוב אשראי חודשי|קניית|קנית|הפקדה/.test(desc || "");
+}
+
+function isDuplicateRow(row) {
+  const list = row.type === "income" ? allIncome : allExpenses;
+  return list.some((e) => {
+    const d = toDate(e.date);
+    return d.getFullYear() === row.date.getFullYear() && d.getMonth() === row.date.getMonth() && d.getDate() === row.date.getDate() &&
+      Math.abs(Number(e.amount || 0) - row.amount) < 0.01 &&
+      (e.description || "").trim() === row.description.trim();
+  });
+}
+
+function parseBankCSV(text) {
+  text = text.replace(/^\uFEFF/, "");
+  const lines = text.split(/\r\n|\n|\r/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const headerCells = parseCSVLine(lines[0]);
+  const dateIdx = headerCells.findIndex((h) => h.includes("תאריך"));
+  const descIdx = headerCells.findIndex((h) => h.includes("תיאור"));
+  const amountIdx = headerCells.findIndex((h) => h.includes("סכום"));
+  if (dateIdx === -1 || descIdx === -1 || amountIdx === -1) return [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = parseCSVLine(lines[i]);
+    if (cells.length <= Math.max(dateIdx, descIdx, amountIdx)) continue;
+    const date = parseIsraeliDate(cells[dateIdx]);
+    const desc = cells[descIdx] || "";
+    const amountRaw = parseAmount(cells[amountIdx]);
+    if (!date || isNaN(amountRaw) || amountRaw === 0) continue;
+    const type = amountRaw < 0 ? "expense" : "income";
+    rows.push({
+      id: "r" + i, date, description: desc.trim(),
+      amount: Math.abs(amountRaw), type,
+      category: guessCategory(desc), checked: true,
+      isTransferLike: false, isDuplicate: false
+    });
+  }
+  return rows;
+}
+
+function importRowHtml(row) {
+  const dateStr = row.date.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  const amountClass = row.type === "income" ? "row-amount income" : "row-amount";
+  const prefix = row.type === "income" ? "+" : "";
+  const baseList = row.type === "income" ? config.incomeCategories : config.categories;
+  const catList = baseList.includes(row.category) ? baseList : [row.category, ...baseList];
+  const catOptions = catList.map((c) => `<option value="${escapeHtml(c)}" ${c === row.category ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+  let badge = "";
+  if (row.isDuplicate) badge = `<span class="import-badge import-badge-dup">כבר קיים</span>`;
+  else if (row.isTransferLike) badge = `<span class="import-badge import-badge-transfer">נראה כמו העברה</span>`;
+  return `
+    <div class="import-row">
+      <input type="checkbox" class="import-checkbox" data-id="${row.id}" ${row.checked ? "checked" : ""}>
+      <div class="import-row-main">
+        <div class="import-row-top">
+          <span class="import-row-desc">${escapeHtml(row.description)}</span>
+          <span class="${amountClass}">${prefix}${Math.round(row.amount).toLocaleString()}₪</span>
+        </div>
+        <div class="import-row-meta">${dateStr}${badge}</div>
+        <select class="import-category-select" data-id="${row.id}">${catOptions}</select>
+      </div>
+    </div>`;
+}
+
+function renderImportModal() {
+  const expCount = importRows.filter((r) => r.type === "expense").length;
+  const incCount = importRows.filter((r) => r.type === "income").length;
+  document.getElementById("import-summary").textContent =
+    `נמצאו ${importRows.length} תנועות: ${expCount} הוצאות, ${incCount} הכנסות. תנועות שנראות כמו העברה פנימית או שכבר קיימות לא מסומנות כברירת מחדל - אפשר לבדוק ולשנות.`;
+  const container = document.getElementById("import-rows-list");
+  container.innerHTML = importRows.map(importRowHtml).join("");
+  container.querySelectorAll(".import-checkbox").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const row = importRows.find((r) => r.id === cb.dataset.id);
+      if (row) row.checked = cb.checked;
+    });
+  });
+  container.querySelectorAll(".import-category-select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const row = importRows.find((r) => r.id === sel.dataset.id);
+      if (row) row.category = sel.value;
+    });
+  });
+}
+
+const importModalOverlay = document.getElementById("import-modal-overlay");
+document.getElementById("open-bank-import").addEventListener("click", () => {
+  document.getElementById("bank-csv-input").click();
+});
+document.getElementById("bank-csv-input").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = decodeCSVBuffer(ev.target.result);
+    importRows = parseBankCSV(text);
+    if (importRows.length === 0) {
+      alert("לא הצלחתי לזהות תנועות בקובץ. ודאו שזה קובץ CSV עם עמודות תאריך, תיאור וסכום.");
+      return;
+    }
+    importRows.forEach((row) => {
+      row.isDuplicate = isDuplicateRow(row);
+      row.isTransferLike = isTransferLike(row.description, row.type);
+      if (row.isDuplicate || row.isTransferLike) row.checked = false;
+    });
+    renderImportModal();
+    importModalOverlay.classList.remove("hidden");
+  };
+  reader.readAsArrayBuffer(file);
+});
+document.getElementById("close-import-modal").addEventListener("click", () => importModalOverlay.classList.add("hidden"));
+importModalOverlay.addEventListener("click", (e) => { if (e.target === importModalOverlay) importModalOverlay.classList.add("hidden"); });
+document.getElementById("import-select-all").addEventListener("click", () => { importRows.forEach((r) => (r.checked = true)); renderImportModal(); });
+document.getElementById("import-deselect-all").addEventListener("click", () => { importRows.forEach((r) => (r.checked = false)); renderImportModal(); });
+
+document.getElementById("confirm-import-btn").addEventListener("click", () => {
+  const account = document.querySelector('input[name="importAccount"]:checked').value;
+  const selected = importRows.filter((r) => r.checked);
+  if (selected.length === 0) { alert("לא נבחרו תנועות לייבוא"); return; }
+  const btn = document.getElementById("confirm-import-btn");
+  btn.disabled = true;
+  btn.textContent = "מייבא...";
+  const chunkSize = 400;
+  const chunks = [];
+  for (let i = 0; i < selected.length; i += chunkSize) chunks.push(selected.slice(i, i + chunkSize));
+  const commits = chunks.map((chunk) => {
+    const batch = db.batch();
+    chunk.forEach((row) => {
+      const ts = firebase.firestore.Timestamp.fromDate(row.date);
+      if (row.type === "income") {
+        batch.set(incomeRef.doc(), { amount: row.amount, description: row.description, category: row.category, account, source: "bank-import", date: ts });
+      } else {
+        batch.set(expensesRef.doc(), { amount: row.amount, description: row.description, category: row.category, paidBy: account, source: "bank-import", date: ts });
+      }
+    });
+    return batch.commit();
+  });
+  Promise.all(commits).then(() => {
+    alert(`יובאו ${selected.length} תנועות בהצלחה ✅`);
+    importModalOverlay.classList.add("hidden");
+    importRows = [];
+  }).catch((err) => {
+    console.error("Bank import error:", err);
+    alert("משהו השתבש בייבוא, נסו שוב");
+  }).finally(() => {
+    btn.disabled = false;
+    btn.textContent = "ייבוא תנועות נבחרות";
+  });
 });
 
 /* ============================================================

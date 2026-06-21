@@ -9,10 +9,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="הקופה המשותפת">
-<meta name="theme-color" content="#1F8A7D">
+<meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -222,6 +222,12 @@
       </div>
     </div>
     <div class="panel">
+      <div class="panel-head"><h2>ייבוא מהבנק</h2></div>
+      <p class="panel-desc">מעלים קובץ CSV של דוח תנועות מהבנק, והמערכת תנחש קטגוריה לכל תנועה ותיתן לבחור מה בדיוק לייבא לפני שמירה.</p>
+      <input type="file" id="bank-csv-input" accept=".csv,text/csv" class="hidden">
+      <button id="open-bank-import" class="submit-btn">בחירת קובץ CSV</button>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>ייצוא נתונים</h2></div>
       <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות, שאפשר לפתוח או לייבא ישירות ל-Google Sheets.</p>
       <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
@@ -347,6 +353,44 @@
       </div>
       <button type="submit" class="submit-btn" id="recurring-submit-btn">הוספה + חיוב ראשון עכשיו</button>
     </form>
+  </div>
+</div>
+
+<!-- Bank CSV import preview modal -->
+<div id="import-modal-overlay" class="modal-overlay hidden">
+  <div class="modal import-modal">
+    <div class="modal-head">
+      <h3>ייבוא מהבנק</h3>
+      <button id="close-import-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <p class="panel-desc" id="import-summary"></p>
+    <div class="field">
+      <span>לאיזה ארנק שייך הדוח?</span>
+      <div class="who-pay">
+        <label class="who-option">
+          <input type="radio" name="importAccount" value="יוסף" checked>
+          <span>יוסף</span>
+        </label>
+        <label class="who-option">
+          <input type="radio" name="importAccount" value="אגם">
+          <span>אגם</span>
+        </label>
+        <label class="who-option who-option-cash">
+          <input type="radio" name="importAccount" value="מזומן">
+          <span>מזומן 💵</span>
+        </label>
+        <label class="who-option who-option-savings">
+          <input type="radio" name="importAccount" value="חיסכון">
+          <span>חיסכון 💰</span>
+        </label>
+      </div>
+    </div>
+    <div class="import-toolbar">
+      <button type="button" id="import-select-all" class="mini-btn">בחר הכל</button>
+      <button type="button" id="import-deselect-all" class="mini-btn">בטל הכל</button>
+    </div>
+    <div id="import-rows-list" class="import-rows-list"></div>
+    <button id="confirm-import-btn" class="submit-btn">ייבוא תנועות נבחרות</button>
   </div>
 </div>
 
@@ -497,6 +541,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
