@@ -137,6 +137,17 @@ function escapeHtml(str) {
   div.textContent = str || "";
   return div.innerHTML;
 }
+function showToast(message, duration = 3000) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
 function getMonthList(list, monthDate) {
   const start = new Date(monthDate);
   const end = new Date(monthDate);
@@ -300,21 +311,25 @@ function renderDashboard() {
 
   const yosefTotal = sumBy(monthExpenses, (e) => e.paidBy === "יוסף");
   const agamTotal = sumBy(monthExpenses, (e) => e.paidBy === "אגם");
+  const cashTotal = sumBy(monthExpenses, (e) => e.paidBy === "מזומן");
+  const savingsTotal = sumBy(monthExpenses, (e) => e.paidBy === "חיסכון");
   const totalExpenses = sumBy(monthExpenses, () => true);
   const totalIncome = sumBy(monthIncome, () => true);
-  const diff = (yosefTotal - agamTotal) / 2;
 
   const figure = document.getElementById("hero-figure");
   const sub = document.getElementById("hero-sub");
   const badge = document.getElementById("hero-badge");
   if (monthExpenses.length === 0) {
     figure.textContent = "0 ₪"; sub.textContent = "עדיין אין הוצאות בחודש הזה"; badge.textContent = "ריק";
-  } else if (Math.abs(diff) < 1) {
-    figure.textContent = "מאוזן 🎉"; sub.textContent = "שניכם שילמתם בערך אותו דבר"; badge.textContent = "פעיל";
-  } else if (diff > 0) {
-    figure.textContent = `${Math.round(diff).toLocaleString()} ₪`; sub.textContent = "אגם חייבת ליוסף"; badge.textContent = "פעיל";
   } else {
-    figure.textContent = `${Math.round(Math.abs(diff)).toLocaleString()} ₪`; sub.textContent = "יוסף חייב לאגם"; badge.textContent = "פעיל";
+    figure.textContent = `${Math.round(totalExpenses).toLocaleString()} ₪`;
+    const parts = [];
+    if (yosefTotal > 0) parts.push(`יוסף ${Math.round(yosefTotal).toLocaleString()}₪`);
+    if (agamTotal > 0) parts.push(`אגם ${Math.round(agamTotal).toLocaleString()}₪`);
+    if (cashTotal > 0) parts.push(`מזומן ${Math.round(cashTotal).toLocaleString()}₪`);
+    if (savingsTotal > 0) parts.push(`חיסכון ${Math.round(savingsTotal).toLocaleString()}₪`);
+    sub.textContent = parts.length ? `מתוכם: ${parts.join(" · ")}` : "סך ההוצאות המשותפות החודש";
+    badge.textContent = "פעיל";
   }
 
   document.getElementById("stat-total").textContent = `${Math.round(totalExpenses).toLocaleString()}₪`;
@@ -862,7 +877,11 @@ document.getElementById("expense-form").addEventListener("submit", (e) => {
     incomeRef.add({ amount, description, category, account, source: "web", date: firebase.firestore.Timestamp.now() }).then(resetAndClose);
   } else {
     const vendor = category === "חתונה" ? document.getElementById("vendor").value.trim() : "";
-    expensesRef.add({ amount, description, category, paidBy: account, vendor, source: "web", date: firebase.firestore.Timestamp.now() }).then(resetAndClose);
+    expensesRef.add({ amount, description, category, paidBy: account, vendor, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
+      if (account === "אגם") showToast("הופההה האישה שילמה מי היה מאמין 😂");
+      else if (account === "יוסף") showToast("סוף סוף הגבר משלם 😎");
+      resetAndClose();
+    });
   }
 });
 function resetAndClose() {

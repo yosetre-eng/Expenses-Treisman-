@@ -312,6 +312,15 @@ body{
 .drawer-item.active .drawer-item-title{color:#fff;}
 .drawer-item.active .drawer-item-sub{color:rgba(255,255,255,.85);}
 
+/* Toast */
+.toast{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-25px);
+  background:var(--gradient);color:#fff;padding:13px 22px;border-radius:999px;
+  font-weight:700;font-size:14px;box-shadow:0 12px 30px rgba(0,0,0,.28);
+  opacity:0;transition:all .3s ease;z-index:200;max-width:88%;text-align:center;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
 @media (prefers-reduced-motion: reduce){
   .modal,.drawer{animation:none;}
 }
