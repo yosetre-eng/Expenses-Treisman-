@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -106,8 +106,22 @@
 
   <!-- ============== EXPENSES VIEW ============== -->
   <section class="view hidden" data-view="expenses">
+    <div class="month-bar">
+      <button id="expenses-prev-month" class="month-arrow" aria-label="חודש קודם">‹</button>
+      <div class="month-pill">
+        <span class="month-icon">📅</span>
+        <div class="month-text">
+          <span id="expenses-month-label">—</span>
+          <span id="expenses-month-sub" class="month-sub">0 הוצאות</span>
+        </div>
+      </div>
+      <button id="expenses-next-month" class="month-arrow" aria-label="חודש הבא">›</button>
+    </div>
     <div class="panel">
-      <div class="panel-head"><h2>הוצאות</h2></div>
+      <div class="panel-head panel-head-row">
+        <h2>הוצאות</h2>
+        <button type="button" id="expenses-show-all" class="chip-toggle">כל הזמנים</button>
+      </div>
       <div class="search-row">
         <input type="text" id="search-input" placeholder="חיפוש לפי תיאור...">
         <select id="filter-category"><option value="">כל הקטגוריות</option></select>
@@ -122,8 +136,22 @@
 
   <!-- ============== INCOME VIEW ============== -->
   <section class="view hidden" data-view="income">
+    <div class="month-bar">
+      <button id="income-prev-month" class="month-arrow" aria-label="חודש קודם">‹</button>
+      <div class="month-pill">
+        <span class="month-icon">📅</span>
+        <div class="month-text">
+          <span id="income-month-label">—</span>
+          <span id="income-month-sub" class="month-sub">0 הכנסות</span>
+        </div>
+      </div>
+      <button id="income-next-month" class="month-arrow" aria-label="חודש הבא">›</button>
+    </div>
     <div class="panel">
-      <div class="panel-head"><h2>הכנסות</h2></div>
+      <div class="panel-head panel-head-row">
+        <h2>הכנסות</h2>
+        <button type="button" id="income-show-all" class="chip-toggle">כל הזמנים</button>
+      </div>
       <div class="search-row">
         <input type="text" id="income-search-input" placeholder="חיפוש לפי תיאור...">
         <select id="income-filter-category"><option value="">כל הקטגוריות</option></select>
@@ -541,6 +569,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

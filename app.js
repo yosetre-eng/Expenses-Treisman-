@@ -308,14 +308,30 @@ function renderPieChart(container, map, opts = {}) {
 /* ============================================================
    6) DASHBOARD
    ============================================================ */
-document.getElementById("prev-month").addEventListener("click", () => { currentMonth.setMonth(currentMonth.getMonth() - 1); renderDashboard(); });
-document.getElementById("next-month").addEventListener("click", () => { currentMonth.setMonth(currentMonth.getMonth() + 1); renderDashboard(); });
+function changeMonth(delta) {
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  updateMonthBarLabels();
+  renderCurrentView();
+}
+function updateMonthBarLabels() {
+  const label = `${HEBREW_MONTHS[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+  ["month-label", "expenses-month-label", "income-month-label"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
+  });
+}
+document.getElementById("prev-month").addEventListener("click", () => changeMonth(-1));
+document.getElementById("next-month").addEventListener("click", () => changeMonth(1));
+document.getElementById("expenses-prev-month").addEventListener("click", () => changeMonth(-1));
+document.getElementById("expenses-next-month").addEventListener("click", () => changeMonth(1));
+document.getElementById("income-prev-month").addEventListener("click", () => changeMonth(-1));
+document.getElementById("income-next-month").addEventListener("click", () => changeMonth(1));
 
 function renderDashboard() {
   const monthExpenses = getMonthList(allExpenses, currentMonth);
   const monthIncome = getMonthList(allIncome, currentMonth);
 
-  document.getElementById("month-label").textContent = `${HEBREW_MONTHS[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+  updateMonthBarLabels();
   document.getElementById("month-sub").textContent = `${monthExpenses.length} הוצאות`;
 
   const yosefTotal = sumBy(monthExpenses, (e) => e.paidBy === "יוסף");
@@ -355,32 +371,48 @@ function renderDashboard() {
 /* ============================================================
    7) EXPENSES VIEW
    ============================================================ */
+let expensesShowAll = false;
 document.getElementById("search-input").addEventListener("input", renderExpensesView);
 document.getElementById("filter-category").addEventListener("change", renderExpensesView);
+document.getElementById("expenses-show-all").addEventListener("click", () => {
+  expensesShowAll = !expensesShowAll;
+  document.getElementById("expenses-show-all").classList.toggle("active", expensesShowAll);
+  renderExpensesView();
+});
 function renderExpensesView() {
   const term = document.getElementById("search-input").value.trim().toLowerCase();
   const cat = document.getElementById("filter-category").value;
-  const filtered = allExpenses.filter((e) => {
+  const base = expensesShowAll ? allExpenses : getMonthList(allExpenses, currentMonth);
+  const filtered = base.filter((e) => {
     const matchesCat = !cat || e.category === cat;
     const matchesTerm = !term || (e.description || "").toLowerCase().includes(term) || (e.category || "").toLowerCase().includes(term);
     return matchesCat && matchesTerm;
   });
+  document.getElementById("expenses-month-sub").textContent = expensesShowAll ? `${filtered.length} הוצאות · כל הזמנים` : `${filtered.length} הוצאות`;
   renderRows(document.getElementById("full-expense-list"), filtered, "expense");
 }
 
 /* ============================================================
    8) INCOME VIEW
    ============================================================ */
+let incomeShowAll = false;
 document.getElementById("income-search-input").addEventListener("input", renderIncomeView);
 document.getElementById("income-filter-category").addEventListener("change", renderIncomeView);
+document.getElementById("income-show-all").addEventListener("click", () => {
+  incomeShowAll = !incomeShowAll;
+  document.getElementById("income-show-all").classList.toggle("active", incomeShowAll);
+  renderIncomeView();
+});
 function renderIncomeView() {
   const term = document.getElementById("income-search-input").value.trim().toLowerCase();
   const cat = document.getElementById("income-filter-category").value;
-  const filtered = allIncome.filter((e) => {
+  const base = incomeShowAll ? allIncome : getMonthList(allIncome, currentMonth);
+  const filtered = base.filter((e) => {
     const matchesCat = !cat || e.category === cat;
     const matchesTerm = !term || (e.description || "").toLowerCase().includes(term) || (e.category || "").toLowerCase().includes(term);
     return matchesCat && matchesTerm;
   });
+  document.getElementById("income-month-sub").textContent = incomeShowAll ? `${filtered.length} הכנסות · כל הזמנים` : `${filtered.length} הכנסות`;
   renderRows(document.getElementById("full-income-list"), filtered, "income");
 }
 
