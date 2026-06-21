@@ -15,6 +15,7 @@ const db = firebase.firestore();
 const expensesRef = db.collection("expenses");
 const incomeRef = db.collection("income");
 const debtsRef = db.collection("debts");
+const recurringRef = db.collection("recurringExpenses");
 const configRef = db.collection("meta").doc("config");
 
 /* ============================================================
@@ -23,6 +24,8 @@ const configRef = db.collection("meta").doc("config");
 let allExpenses = [];
 let allIncome = [];
 let allDebts = [];
+let allRecurring = [];
+let recurringCatchUpRan = false;
 let currentMonth = new Date();
 currentMonth.setDate(1);
 currentMonth.setHours(0, 0, 0, 0);
@@ -66,6 +69,15 @@ debtsRef.orderBy("date", "desc").onSnapshot((snapshot) => {
   allDebts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   renderCurrentView();
 }, (err) => console.error("Firestore error (debts):", err));
+
+recurringRef.onSnapshot((snapshot) => {
+  allRecurring = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  if (!recurringCatchUpRan) {
+    recurringCatchUpRan = true;
+    runRecurringCatchUp();
+  }
+  renderCurrentView();
+}, (err) => console.error("Firestore error (recurring):", err));
 
 configRef.onSnapshot((doc) => {
   if (!doc.exists) {
@@ -118,6 +130,7 @@ function renderCurrentView() {
   else if (currentView === "wedding") renderWeddingView();
   else if (currentView === "reports") renderReportsView();
   else if (currentView === "debts") renderDebtsView();
+  else if (currentView === "recurring") renderRecurringView();
   else if (currentView === "settings") renderSettingsView();
 }
 
@@ -201,6 +214,12 @@ function populateCategorySelects() {
     filterIncome.innerHTML = '<option value="">כל הקטגוריות</option>' + config.incomeCategories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     if ([...filterIncome.options].some((o) => o.value === prev)) filterIncome.value = prev;
   }
+  const recurringCategory = document.getElementById("recurring-category");
+  if (recurringCategory) {
+    const prev = recurringCategory.value;
+    recurringCategory.innerHTML = config.categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if ([...recurringCategory.options].some((o) => o.value === prev)) recurringCategory.value = prev;
+  }
 }
 
 function rowHtml(e, type) {
@@ -208,7 +227,7 @@ function rowHtml(e, type) {
   const dateStr = d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
   const who = type === "income" ? e.account : e.paidBy;
   const dotClass = who === "יוסף" ? "dot-yosef" : who === "אגם" ? "dot-agam" : who === "מזומן" ? "dot-cash" : "dot-savings";
-  const sourceTag = e.source === "telegram" ? " · טלגרם" : "";
+  const sourceTag = e.source === "telegram" ? " · טלגרם" : e.source === "recurring" ? " · קבוע 🔁" : "";
   const vendorTag = e.vendor ? ` · ${escapeHtml(e.vendor)}` : "";
   const amountClass = type === "income" ? "row-amount income" : "row-amount";
   const prefix = type === "income" ? "+" : "";
@@ -589,7 +608,105 @@ document.getElementById("open-add-wedding").addEventListener("click", () => {
 });
 
 /* ============================================================
-   12) DEBTS VIEW (we owe people / people owe us)
+   12) RECURRING EXPENSES (auto-generated on a schedule)
+   ============================================================ */
+function addPeriod(date, frequency) {
+  const d = new Date(date);
+  if (frequency === "weekly") d.setDate(d.getDate() + 7);
+  else if (frequency === "yearly") d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return d;
+}
+function runRecurringCatchUp() {
+  const now = new Date();
+  allRecurring.forEach((r) => {
+    if (!r.active) return;
+    let last = r.lastGenerated ? toDate(r.lastGenerated) : (r.createdAt ? toDate(r.createdAt) : now);
+    let next = addPeriod(last, r.frequency);
+    let count = 0;
+    const batch = db.batch();
+    let generated = false;
+    while (next <= now && count < 24) {
+      const ref = expensesRef.doc();
+      batch.set(ref, {
+        amount: r.amount, description: r.name, category: r.category, paidBy: r.account,
+        vendor: "", source: "recurring", date: firebase.firestore.Timestamp.fromDate(next)
+      });
+      last = next;
+      next = addPeriod(next, r.frequency);
+      count++;
+      generated = true;
+    }
+    if (generated) {
+      batch.update(recurringRef.doc(r.id), { lastGenerated: firebase.firestore.Timestamp.fromDate(last) });
+      batch.commit().catch((err) => console.error("Recurring catch-up error:", err));
+    }
+  });
+}
+function recurringRowHtml(r) {
+  const freqLabel = r.frequency === "weekly" ? "שבועי" : r.frequency === "yearly" ? "שנתי" : "חודשי";
+  const last = r.lastGenerated ? toDate(r.lastGenerated) : (r.createdAt ? toDate(r.createdAt) : new Date());
+  const next = addPeriod(last, r.frequency);
+  const nextStr = next.toLocaleDateString("he-IL", { day: "numeric", month: "short", year: "numeric" });
+  return `
+    <div class="recurring-row ${r.active ? "" : "recurring-paused"}">
+      <div class="recurring-row-top">
+        <div><strong>${escapeHtml(r.name)}</strong><span class="recurring-badge">${freqLabel}</span></div>
+        <span class="recurring-amount">${Math.round(r.amount).toLocaleString()}₪</span>
+      </div>
+      <div class="recurring-meta">${escapeHtml(r.category)} · ${escapeHtml(r.account)} · החיוב הבא: ${r.active ? nextStr : "מושהה"}</div>
+      <div class="recurring-actions">
+        <button class="mini-btn recurring-toggle" data-id="${r.id}" data-active="${r.active}">${r.active ? "השהיה" : "הפעלה"}</button>
+        <button class="row-delete recurring-delete" data-id="${r.id}" aria-label="מחק">✕ מחיקה</button>
+      </div>
+    </div>`;
+}
+function renderRecurringView() {
+  const container = document.getElementById("recurring-list");
+  if (allRecurring.length === 0) {
+    container.innerHTML = `<p class="empty-hint">עדיין אין הוצאות קבועות</p>`;
+    return;
+  }
+  container.innerHTML = allRecurring.map(recurringRowHtml).join("");
+  container.querySelectorAll(".recurring-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const isActive = btn.dataset.active === "true";
+      recurringRef.doc(btn.dataset.id).update({ active: !isActive });
+    });
+  });
+  container.querySelectorAll(".recurring-delete").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (confirm("למחוק את ההוצאה הקבועה? הוצאות שכבר נוצרו מהעבר לא יימחקו.")) recurringRef.doc(btn.dataset.id).delete();
+    });
+  });
+}
+
+const recurringModalOverlay = document.getElementById("recurring-modal-overlay");
+document.getElementById("open-add-recurring").addEventListener("click", () => {
+  populateCategorySelects();
+  recurringModalOverlay.classList.remove("hidden");
+});
+document.getElementById("close-recurring-modal").addEventListener("click", () => recurringModalOverlay.classList.add("hidden"));
+recurringModalOverlay.addEventListener("click", (e) => { if (e.target === recurringModalOverlay) recurringModalOverlay.classList.add("hidden"); });
+document.getElementById("recurring-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = document.getElementById("recurring-name").value.trim();
+  const amount = parseFloat(document.getElementById("recurring-amount").value);
+  const category = document.getElementById("recurring-category").value;
+  const frequency = document.getElementById("recurring-frequency").value;
+  const account = document.querySelector('input[name="recurringAccount"]:checked').value;
+  if (!name || !amount || amount <= 0) return;
+  const now = firebase.firestore.Timestamp.now();
+  recurringRef.add({ name, amount, category, frequency, account, active: true, createdAt: now, lastGenerated: now }).then(() => {
+    expensesRef.add({ amount, description: name, category, paidBy: account, vendor: "", source: "recurring", date: now });
+    document.getElementById("recurring-form").reset();
+    document.querySelector('input[name="recurringAccount"][value="יוסף"]').checked = true;
+    recurringModalOverlay.classList.add("hidden");
+  });
+});
+
+/* ============================================================
+   13) DEBTS VIEW (we owe people / people owe us)
    ============================================================ */
 function debtRowHtml(d) {
   const dateStr = toDate(d.date).toLocaleDateString("he-IL", { day: "numeric", month: "short" });

@@ -6,7 +6,7 @@
 <title>הקופה המשותפת | יוסף ואגם</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -278,6 +278,18 @@
     </div>
   </section>
 
+  <!-- ============== RECURRING EXPENSES VIEW ============== -->
+  <section class="view hidden" data-view="recurring">
+    <div class="panel">
+      <div class="panel-head"><h2>הוצאות קבועות</h2></div>
+      <p class="panel-desc">הגדירו חיוב חוזר (שכירות, מנויים וכו') ובכל פעם שנכנסים לאפליקציה היא בודקת אם הגיע הזמן לחיוב הבא ומוסיפה אותו אוטומטית להוצאות.</p>
+      <button id="open-add-recurring" class="submit-btn">+ הוצאה קבועה חדשה</button>
+    </div>
+    <div class="panel">
+      <div id="recurring-list"><p class="empty-hint">עדיין אין הוצאות קבועות</p></div>
+    </div>
+  </section>
+
   <!-- ============== DEBTS VIEW ============== -->
   <section class="view hidden" data-view="debts">
     <div class="hero-card debts-hero">
@@ -324,6 +336,60 @@
 
 <!-- Floating add button -->
 <button id="open-add" class="fab" aria-label="הוסף">+</button>
+
+<!-- Add recurring expense modal -->
+<div id="recurring-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>הוצאה קבועה חדשה</h3>
+      <button id="close-recurring-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <form id="recurring-form">
+      <label class="field">
+        <span>שם ההוצאה</span>
+        <input type="text" id="recurring-name" required placeholder="לדוגמה: שכירות, נטפליקס, חדר כושר">
+      </label>
+      <label class="field">
+        <span>סכום (₪)</span>
+        <input type="number" id="recurring-amount" inputmode="decimal" min="0" step="0.1" required>
+      </label>
+      <label class="field">
+        <span>קטגוריה</span>
+        <select id="recurring-category"></select>
+      </label>
+      <label class="field">
+        <span>תדירות חיוב</span>
+        <select id="recurring-frequency">
+          <option value="monthly">חודשי</option>
+          <option value="weekly">שבועי</option>
+          <option value="yearly">שנתי</option>
+        </select>
+      </label>
+      <div class="field">
+        <span>ממי זה יוצא?</span>
+        <div class="who-pay">
+          <label class="who-option">
+            <input type="radio" name="recurringAccount" value="יוסף" checked>
+            <span>יוסף</span>
+          </label>
+          <label class="who-option">
+            <input type="radio" name="recurringAccount" value="אגם">
+            <span>אגם</span>
+          </label>
+          <label class="who-option who-option-cash">
+            <input type="radio" name="recurringAccount" value="מזומן">
+            <span>מזומן 💵</span>
+          </label>
+          <label class="who-option who-option-savings">
+            <input type="radio" name="recurringAccount" value="חיסכון">
+            <span>חיסכון 💰</span>
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn">הוספה + חיוב ראשון עכשיו</button>
+    </form>
+  </div>
+</div>
 
 <!-- Add debt modal -->
 <div id="debt-modal-overlay" class="modal-overlay hidden">
@@ -453,6 +519,10 @@
         <span class="drawer-icon">🎯</span>
         <span class="drawer-item-text"><span class="drawer-item-title">תקציב חודשי</span><span class="drawer-item-sub">יעדים לכל קטגוריה</span></span>
       </button>
+      <button class="drawer-item" data-view="recurring">
+        <span class="drawer-icon">🔁</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">הוצאות קבועות</span><span class="drawer-item-sub">חיובים חוזרים</span></span>
+      </button>
       <button class="drawer-item" data-view="wedding">
         <span class="drawer-icon">💍</span>
         <span class="drawer-item-text"><span class="drawer-item-title">חתונה</span><span class="drawer-item-sub">תקציב לפי ספקים</span></span>
@@ -476,6 +546,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
