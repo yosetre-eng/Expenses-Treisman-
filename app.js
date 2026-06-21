@@ -31,6 +31,7 @@ let reportType = "expenses";
 const DEFAULT_CATEGORIES = ["אוכל", "חתונה", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
 const ACCOUNTS = ["יוסף", "אגם", "מזומן"];
+const BALANCE_ACCOUNTS = ["יוסף", "אגם", "מזומן", "חיסכון"];
 const PALETTE = ["#2F8F86", "#D6577A", "#2F5FD6", "#C2570E", "#7C5CE0", "#B8860B", "#34A853", "#EC4899", "#0EA5E9", "#F97316", "#9333EA", "#059669"];
 
 let config = {
@@ -184,7 +185,7 @@ function rowHtml(e, type) {
   const d = toDate(e.date);
   const dateStr = d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
   const who = type === "income" ? e.account : e.paidBy;
-  const dotClass = who === "יוסף" ? "dot-yosef" : who === "אגם" ? "dot-agam" : "dot-cash";
+  const dotClass = who === "יוסף" ? "dot-yosef" : who === "אגם" ? "dot-agam" : who === "מזומן" ? "dot-cash" : "dot-savings";
   const sourceTag = e.source === "telegram" ? " · טלגרם" : "";
   const vendorTag = e.vendor ? ` · ${escapeHtml(e.vendor)}` : "";
   const amountClass = type === "income" ? "row-amount income" : "row-amount";
@@ -310,7 +311,7 @@ function renderDashboard() {
   document.getElementById("stat-yosef").textContent = `${Math.round(yosefTotal).toLocaleString()}₪`;
   document.getElementById("stat-agam").textContent = `${Math.round(agamTotal).toLocaleString()}₪`;
   document.getElementById("stat-balance").textContent = `${Math.round(computeTotalBalance()).toLocaleString()}₪`;
-  document.getElementById("stat-saved").textContent = `${Math.round(computeTotalSaved()).toLocaleString()}₪`;
+  document.getElementById("stat-saved").textContent = `${Math.round(computeTotalSaved() + computeAccountBalance("חיסכון")).toLocaleString()}₪`;
 
   renderCategoryBars(document.getElementById("category-bars"), groupByCategory(monthExpenses), { emptyText: "אין עדיין הוצאות החודש" });
   renderRows(document.getElementById("recent-expense-list"), monthExpenses, "expense", { limit: 5, emptyText: "כשתוסיפו הוצאה היא תופיע כאן" });
@@ -353,14 +354,14 @@ function renderIncomeView() {
    ============================================================ */
 function renderFinancesView() {
   const container = document.getElementById("balance-cards");
-  container.innerHTML = ACCOUNTS.map((acc) => {
+  container.innerHTML = BALANCE_ACCOUNTS.map((acc) => {
     const balance = computeAccountBalance(acc);
-    const opening = (config.accountBalances && config.accountBalances[acc]) || 0;
+    const label = acc === "מזומן" ? "מזומן 💵" : acc === "חיסכון" ? "חיסכון 💰" : acc;
     return `
       <div class="balance-card">
-        <span class="balance-name">${acc === "מזומן" ? "מזומן 💵" : acc}</span>
+        <span class="balance-name">${label}</span>
         <span class="balance-amount">${Math.round(balance).toLocaleString()}₪</span>
-        <input type="number" data-account="${acc}" value="${opening || ""}" placeholder="יתרת פתיחה">
+        <input type="number" data-account="${acc}" value="${Math.round(balance)}" placeholder="איפוס יתרה">
       </div>`;
   }).join("");
   document.getElementById("balance-total-amount").textContent = `${Math.round(computeTotalBalance()).toLocaleString()}₪`;
@@ -369,11 +370,15 @@ function renderFinancesView() {
 }
 
 document.getElementById("save-balances").addEventListener("click", () => {
-  const newBalances = {};
-  document.querySelectorAll("#balance-cards input").forEach((input) => {
-    newBalances[input.dataset.account] = parseFloat(input.value) || 0;
+  const newBalances = { ...(config.accountBalances || {}) };
+  document.querySelectorAll("#balance-cards input[data-account]").forEach((input) => {
+    const acc = input.dataset.account;
+    const desired = parseFloat(input.value);
+    if (isNaN(desired)) return;
+    const txDelta = sumBy(allIncome, (i) => i.account === acc) - sumBy(allExpenses, (e) => e.paidBy === acc);
+    newBalances[acc] = desired - txDelta;
   });
-  configRef.set({ accountBalances: newBalances }, { merge: true }).then(() => alert("היתרות נשמרו ✅"));
+  configRef.set({ accountBalances: newBalances }, { merge: true }).then(() => alert("היתרות עודכנו ✅"));
 });
 
 function renderSavingsList() {
@@ -569,6 +574,7 @@ document.querySelectorAll("[data-report]").forEach((btn) => {
 });
 
 function renderReportsView() {
+  renderInsights();
   if (reportType === "income") {
     renderPieChart(document.getElementById("report-pie-wrap"), groupByCategory(allIncome), { emptyText: "אין עדיין נתוני הכנסות" });
   } else {
@@ -590,6 +596,55 @@ function renderReportsView() {
       </div>
       <span class="month-bar-label">${HEBREW_MONTHS_SHORT[m.getMonth()]}</span>
     </div>`).join("");
+}
+
+function renderInsights() {
+  const thisMonth = currentMonth;
+  const prevMonth = new Date(thisMonth);
+  prevMonth.setMonth(prevMonth.getMonth() - 1);
+  const thisExp = getMonthList(allExpenses, thisMonth);
+  const prevExp = getMonthList(allExpenses, prevMonth);
+  const thisTotal = sumBy(thisExp, () => true);
+  const prevTotal = sumBy(prevExp, () => true);
+  const delta = thisTotal - prevTotal;
+
+  const container = document.getElementById("insights-panel");
+  if (thisExp.length === 0 && prevExp.length === 0) {
+    container.innerHTML = `<p class="empty-hint">אין עדיין מספיק נתונים להשוואה</p>`;
+    return;
+  }
+
+  let summaryHtml = `סך ההוצאות ב${HEBREW_MONTHS[thisMonth.getMonth()]}: <strong>${Math.round(thisTotal).toLocaleString()}₪</strong>`;
+  if (prevTotal > 0) {
+    const pct = Math.round((delta / prevTotal) * 100);
+    if (delta > 0) summaryHtml += ` — עלייה של ${Math.round(delta).toLocaleString()}₪ (${pct}%+) לעומת ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
+    else if (delta < 0) summaryHtml += ` — ירידה של ${Math.round(Math.abs(delta)).toLocaleString()}₪ (${Math.abs(pct)}%-) לעומת ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
+    else summaryHtml += ` — בדיוק כמו ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
+  } else if (thisTotal > 0) {
+    summaryHtml += ` — אין נתוני השוואה לחודש הקודם`;
+  }
+
+  const thisByCat = groupByCategory(thisExp);
+  const prevByCat = groupByCategory(prevExp);
+  const allCats = new Set([...Object.keys(thisByCat), ...Object.keys(prevByCat)]);
+  const increases = [...allCats]
+    .map((cat) => ({ cat, diff: (thisByCat[cat] || 0) - (prevByCat[cat] || 0), thisVal: thisByCat[cat] || 0, prevVal: prevByCat[cat] || 0 }))
+    .filter((d) => d.diff > 0)
+    .sort((a, b) => b.diff - a.diff)
+    .slice(0, 4);
+
+  let listHtml = "";
+  if (increases.length > 0) {
+    listHtml = `<div class="insight-list">` + increases.map((d) => `
+      <div class="insight-row">
+        <span class="insight-cat">📈 ${escapeHtml(d.cat)}</span>
+        <span class="insight-detail">${Math.round(d.thisVal).toLocaleString()}₪ החודש לעומת ${Math.round(d.prevVal).toLocaleString()}₪ בחודש קודם (+${Math.round(d.diff).toLocaleString()}₪)</span>
+      </div>`).join("") + `</div>`;
+  } else if (thisExp.length > 0) {
+    listHtml = `<p class="empty-hint">לא הוצאתם יותר באף קטגוריה לעומת החודש הקודם 🎉</p>`;
+  }
+
+  container.innerHTML = `<div class="insight-summary">${summaryHtml}</div>${listHtml}`;
 }
 
 /* ============================================================
@@ -621,6 +676,31 @@ document.getElementById("add-income-category-btn").addEventListener("click", () 
   if (!val || config.incomeCategories.includes(val)) return;
   configRef.set({ incomeCategories: [...config.incomeCategories, val] }, { merge: true }).then(() => { input.value = ""; });
 });
+document.getElementById("export-csv-btn").addEventListener("click", exportCSV);
+function csvField(val) {
+  const s = String(val == null ? "" : val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+function exportCSV() {
+  const rows = [["סוג", "תאריך", "תיאור", "קטגוריה", "ספק", "ארנק", "סכום"]];
+  allExpenses.forEach((e) => {
+    rows.push(["הוצאה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", e.vendor || "", e.paidBy || "", Math.round(e.amount)]);
+  });
+  allIncome.forEach((e) => {
+    rows.push(["הכנסה", toDate(e.date).toLocaleDateString("he-IL"), e.description || "", e.category || "", "", e.account || "", Math.round(e.amount)]);
+  });
+  const csv = rows.map((r) => r.map(csvField).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `קופה-משותפת-${new Date().toLocaleDateString("he-IL").replace(/\./g, "-")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 document.getElementById("clear-all-btn").addEventListener("click", () => {
   if (!confirm("בטוחים? כל ההוצאות וההכנסות יימחקו לצמיתות.")) return;
   if (!confirm("רגע אחרון - זו פעולה שאי אפשר לבטל. למחוק הכל?")) return;

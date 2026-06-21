@@ -134,18 +134,18 @@
   <section class="view hidden" data-view="finances">
     <div class="panel">
       <div class="panel-head"><h2>יתרות נוכחיות</h2></div>
-      <p class="panel-desc">יתרת פתיחה + הכנסות − הוצאות, לכל ארנק בנפרד.</p>
+      <p class="panel-desc">היתרה מחושבת אוטומטית ונשמרת לאורך כל הזמן (לא מתאפסת בתחילת חודש). אפשר בכל רגע "לאפס" ולקבוע יתרה מדויקת - פשוט הקלידו את הסכום האמיתי ולחצו שמירה.</p>
       <div id="balance-cards" class="balance-cards"></div>
       <div class="balance-card balance-total" id="balance-total-card">
-        <span class="balance-name">סה״כ ביחד</span>
+        <span class="balance-name">סה״כ זמין (לא כולל חיסכון)</span>
         <span class="balance-amount" id="balance-total-amount">0₪</span>
       </div>
-      <button id="save-balances" class="submit-btn">שמירת יתרות פתיחה</button>
+      <button id="save-balances" class="submit-btn">שמירה / איפוס יתרות</button>
     </div>
 
     <div class="panel">
       <div class="panel-head"><h2>חסכונות</h2></div>
-      <p class="panel-desc">יעדי חיסכון משותפים - עדכנו את הסכום שכבר נחסך בכל פעם שמפקידים.</p>
+      <p class="panel-desc">הכנסה שמסומנת כ"חיסכון" ב-+ נכנסת אוטומטית ל"חיסכון כללי" כאן ולא נספרת ביתרה הזמינה. בנוסף אפשר להגדיר יעדי חיסכון ספציפיים ולעדכן אותם ידנית.</p>
       <div id="savings-list" class="savings-list"></div>
       <div class="add-vendor-row">
         <input type="text" id="new-savings-name" placeholder="שם היעד (לדוגמה: קרן חירום)">
@@ -227,6 +227,10 @@
       <div id="report-pie-wrap"></div>
     </div>
     <div class="panel">
+      <div class="panel-head"><h2>תובנות לעומת החודש הקודם</h2></div>
+      <div id="insights-panel"></div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>תזרים חודשי (הכנסות מול הוצאות)</h2></div>
       <div id="monthly-chart" class="monthly-chart"></div>
       <div class="chart-legend">
@@ -253,6 +257,11 @@
         <input type="text" id="new-income-category-input" placeholder="קטגוריה חדשה...">
         <button id="add-income-category-btn" class="mini-btn">הוסף</button>
       </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>ייצוא נתונים</h2></div>
+      <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות, שאפשר לפתוח או לייבא ישירות ל-Google Sheets.</p>
+      <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
     </div>
     <div class="panel danger-panel">
       <div class="panel-head"><h2>אזור מסוכן</h2></div>
@@ -308,6 +317,10 @@
           <label class="who-option who-option-cash">
             <input type="radio" name="payAccount" value="מזומן">
             <span>מזומן 💵</span>
+          </label>
+          <label class="who-option who-option-savings">
+            <input type="radio" name="payAccount" value="חיסכון">
+            <span>חיסכון 💰</span>
           </label>
         </div>
       </div>

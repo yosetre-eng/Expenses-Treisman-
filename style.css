@@ -132,7 +132,7 @@ body{
 .expense-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
 .expense-row:last-child{border-bottom:none;}
 .row-dot{width:8px;height:8px;min-width:8px;border-radius:50%;}
-.dot-yosef{background:var(--yosef);} .dot-agam{background:var(--agam);} .dot-cash{background:var(--cash);}
+.dot-yosef{background:var(--yosef);} .dot-agam{background:var(--agam);} .dot-cash{background:var(--cash);} .dot-savings{background:var(--amber);}
 .row-main{flex:1;min-width:0;}
 .row-title{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .row-meta{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -172,7 +172,7 @@ body{
 .wedding-track{height:12px;margin-bottom:10px;}
 
 /* Balances */
-.balance-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px;}
+.balance-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:8px;}
 .balance-card{background:var(--bg);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;display:flex;flex-direction:column;gap:6px;}
 .balance-name{font-size:12px;color:var(--muted);font-weight:600;}
 .balance-amount{font-size:16.5px;font-weight:800;}
@@ -210,6 +210,14 @@ body{
 .pie-legend-name{flex:1;font-weight:600;}
 .pie-legend-pct{color:var(--muted);font-size:12px;}
 .pie-legend-amount{color:var(--text);font-weight:700;}
+
+/* Insights */
+.insight-summary{font-size:14px;line-height:1.7;margin-bottom:14px;color:var(--text);}
+.insight-summary strong{font-weight:800;}
+.insight-list{display:flex;flex-direction:column;gap:10px;}
+.insight-row{display:flex;flex-direction:column;gap:2px;background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;}
+.insight-cat{font-weight:700;font-size:13.5px;}
+.insight-detail{font-size:12.5px;color:var(--muted);}
 
 /* Monthly cash-flow chart */
 .monthly-chart{display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:10px;}
@@ -264,6 +272,7 @@ body{
 .who-option:has(input:checked){border-color:var(--yosef);background:var(--yosef-tint);color:var(--yosef);}
 .who-option:nth-child(2):has(input:checked){border-color:var(--agam);background:var(--agam-tint);color:var(--agam);}
 .who-option-cash:has(input:checked){border-color:var(--cash);background:var(--cash-tint);color:var(--cash);}
+.who-option-savings:has(input:checked){border-color:var(--amber);background:var(--amber-tint);color:var(--amber);}
 
 .submit-btn{width:100%;border:none;border-radius:var(--radius-sm);padding:14px;background:var(--gradient);color:#fff;font-size:15.5px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
 
