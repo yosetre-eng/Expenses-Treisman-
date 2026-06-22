@@ -16,6 +16,7 @@ const expensesRef = db.collection("expenses");
 const incomeRef = db.collection("income");
 const debtsRef = db.collection("debts");
 const recurringRef = db.collection("recurringExpenses");
+const eventsRef = db.collection("events");
 const configRef = db.collection("meta").doc("config");
 
 /* ============================================================
@@ -25,6 +26,7 @@ let allExpenses = [];
 let allIncome = [];
 let allDebts = [];
 let allRecurring = [];
+let allEvents = [];
 let recurringCatchUpRan = false;
 let currentMonth = new Date();
 currentMonth.setDate(1);
@@ -32,7 +34,9 @@ currentMonth.setHours(0, 0, 0, 0);
 let currentView = "dashboard";
 let modalType = "expense";
 let reportType = "expenses";
+let reportPeriod = "month";
 let recurringModalType = "expense";
+let currentEventId = null;
 
 const DEFAULT_CATEGORIES = ["אוכל", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
@@ -77,6 +81,11 @@ recurringRef.onSnapshot((snapshot) => {
   }
   renderCurrentView();
 }, (err) => console.error("Firestore error (recurring):", err));
+
+eventsRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+  allEvents = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  renderCurrentView();
+}, (err) => console.error("Firestore error (events):", err));
 
 configRef.onSnapshot((doc) => {
   if (!doc.exists) {
@@ -125,6 +134,7 @@ function renderCurrentView() {
   else if (currentView === "finances") renderFinancesView();
   else if (currentView === "budget") renderBudgetView();
   else if (currentView === "reports") renderReportsView();
+  else if (currentView === "events") renderEventsView();
   else if (currentView === "debts") renderDebtsView();
   else if (currentView === "recurring") renderRecurringView();
   else if (currentView === "settings") renderSettingsView();
@@ -163,6 +173,8 @@ function getMonthList(list, monthDate) {
   end.setMonth(end.getMonth() + 1);
   return list.filter((e) => { const d = toDate(e.date); return d >= start && d < end; });
 }
+function regularExpenses() { return allExpenses.filter((e) => !e.eventId); }
+
 function groupByCategory(list) {
   const map = {};
   list.forEach((e) => { const cat = e.category || "אחר"; map[cat] = (map[cat] || 0) + Number(e.amount || 0); });
@@ -210,6 +222,12 @@ function populateCategorySelects() {
     const list = recurringModalType === "income" ? config.incomeCategories : config.categories;
     recurringCategory.innerHTML = list.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     if ([...recurringCategory.options].some((o) => o.value === prev)) recurringCategory.value = prev;
+  }
+  const eventExpCat = document.getElementById("event-expense-category");
+  if (eventExpCat) {
+    const prev = eventExpCat.value;
+    eventExpCat.innerHTML = config.categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    if ([...eventExpCat.options].some((o) => o.value === prev)) eventExpCat.value = prev;
   }
 }
 
@@ -328,7 +346,7 @@ document.getElementById("income-prev-month").addEventListener("click", () => cha
 document.getElementById("income-next-month").addEventListener("click", () => changeMonth(1));
 
 function renderDashboard() {
-  const monthExpenses = getMonthList(allExpenses, currentMonth);
+  const monthExpenses = getMonthList(regularExpenses(), currentMonth);
   const monthIncome = getMonthList(allIncome, currentMonth);
 
   updateMonthBarLabels();
@@ -382,7 +400,7 @@ document.getElementById("expenses-show-all").addEventListener("click", () => {
 function renderExpensesView() {
   const term = document.getElementById("search-input").value.trim().toLowerCase();
   const cat = document.getElementById("filter-category").value;
-  const base = expensesShowAll ? allExpenses : getMonthList(allExpenses, currentMonth);
+  const base = expensesShowAll ? regularExpenses() : getMonthList(regularExpenses(), currentMonth);
   const filtered = base.filter((e) => {
     const matchesCat = !cat || e.category === cat;
     const matchesTerm = !term || (e.description || "").toLowerCase().includes(term) || (e.category || "").toLowerCase().includes(term);
@@ -509,7 +527,7 @@ document.getElementById("add-savings-btn").addEventListener("click", () => {
    ============================================================ */
 function renderBudgetView() {
   const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0, 0, 0, 0);
-  const spentMap = groupByCategory(getMonthList(allExpenses, thisMonth));
+  const spentMap = groupByCategory(getMonthList(regularExpenses(), thisMonth));
   const cats = config.categories;
   const container = document.getElementById("budget-rows");
   container.innerHTML = cats.map((cat) => {
@@ -760,84 +778,282 @@ document.querySelectorAll("[data-report]").forEach((btn) => {
   btn.addEventListener("click", () => {
     reportType = btn.dataset.report;
     document.querySelectorAll("[data-report]").forEach((b) => b.classList.toggle("active", b.dataset.report === reportType));
-    document.getElementById("pie-title").textContent = reportType === "income" ? "פילוח הכנסות (מאז ההתחלה)" : "פילוח הוצאות (מאז ההתחלה)";
+    renderReportsView();
+  });
+});
+document.querySelectorAll("[data-period]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    reportPeriod = btn.dataset.period;
+    document.querySelectorAll("[data-period]").forEach((b) => b.classList.toggle("active", b.dataset.period === reportPeriod));
     renderReportsView();
   });
 });
 
+function getReportDateRange() {
+  const now = new Date();
+  if (reportPeriod === "month") {
+    const start = new Date(currentMonth); start.setDate(1); start.setHours(0,0,0,0);
+    const end = new Date(start); end.setMonth(end.getMonth()+1);
+    return { start, end, label: `${HEBREW_MONTHS[currentMonth.getMonth()]} ${currentMonth.getFullYear()}` };
+  }
+  if (reportPeriod === "quarter") {
+    const q = Math.floor(now.getMonth() / 3);
+    const start = new Date(now.getFullYear(), q * 3, 1);
+    const end = new Date(now.getFullYear(), q * 3 + 3, 1);
+    return { start, end, label: `רבעון ${q+1} / ${now.getFullYear()}` };
+  }
+  if (reportPeriod === "year") {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear()+1, 0, 1);
+    return { start, end, label: `שנת ${now.getFullYear()}` };
+  }
+  return { start: null, end: null, label: "כל הזמנים" };
+}
+
+function filterByRange(list, { start, end }) {
+  if (!start) return list;
+  return list.filter((e) => { const d = toDate(e.date); return d >= start && d < end; });
+}
+
 function renderReportsView() {
-  renderInsights();
-  if (reportType === "income") {
-    renderPieChart(document.getElementById("report-pie-wrap"), groupByCategory(allIncome), { emptyText: "אין עדיין נתוני הכנסות" });
+  const range = getReportDateRange();
+  const regExp = regularExpenses();
+  const periodExp = filterByRange(regExp, range);
+  const periodInc = filterByRange(allIncome, range);
+  const totalExp = sumBy(periodExp, () => true);
+  const totalInc = sumBy(periodInc, () => true);
+  const net = totalInc - totalExp;
+
+  // Net balance hero card
+  const card = document.getElementById("reports-net-card");
+  const isPositive = net >= 0;
+  card.className = `reports-net-card ${isPositive ? "net-positive" : "net-negative"}`;
+  document.getElementById("reports-net-period").textContent = range.label;
+  document.getElementById("reports-net-figure").textContent = `${net >= 0 ? "+" : ""}${Math.round(net).toLocaleString()} ₪`;
+  document.getElementById("reports-net-sub").textContent =
+    `הכנסות ${Math.round(totalInc).toLocaleString()}₪  |  הוצאות ${Math.round(totalExp).toLocaleString()}₪`;
+
+  // Pie chart
+  const pieData = reportType === "income" ? groupByCategory(periodInc) : groupByCategory(periodExp);
+  const pieEmpty = reportType === "income" ? "אין הכנסות בתקופה זו" : "אין הוצאות בתקופה זו";
+  const pieTitle = (reportType === "income" ? "פילוח הכנסות" : "פילוח הוצאות") + ` — ${range.label}`;
+  document.getElementById("pie-title").textContent = pieTitle;
+  renderPieChart(document.getElementById("report-pie-wrap"), pieData, { emptyText: pieEmpty });
+
+  // Category breakdown table
+  const breakdownData = reportType === "income" ? groupByCategory(periodInc) : groupByCategory(periodExp);
+  const breakdownTitle = (reportType === "income" ? "הכנסות" : "הוצאות") + ` לפי קטגוריה — ${range.label}`;
+  document.getElementById("cat-breakdown-title").textContent = breakdownTitle;
+  const sorted = Object.entries(breakdownData).sort((a, b) => b[1] - a[1]);
+  const total = sorted.reduce((s, [,v]) => s + v, 0);
+  const bdEl = document.getElementById("cat-breakdown-list");
+  if (sorted.length === 0) {
+    bdEl.innerHTML = `<p class="empty-hint">אין נתונים לתקופה זו</p>`;
   } else {
-    renderPieChart(document.getElementById("report-pie-wrap"), groupByCategory(allExpenses), { emptyText: "אין עדיין נתוני הוצאות" });
+    bdEl.innerHTML = sorted.map(([cat, amt]) => {
+      const pct = total > 0 ? Math.round((amt / total) * 100) : 0;
+      return `<div class="cat-row-detail">
+        <div class="cat-row-top"><span class="cat-row-name">${escapeHtml(cat)}</span><span class="cat-row-amt">${Math.round(amt).toLocaleString()}₪</span></div>
+        <div class="cat-track"><div class="cat-fill" style="width:${pct}%"></div></div>
+        <span class="cat-row-pct">${pct}%</span>
+      </div>`;
+    }).join("");
   }
 
+  renderInsights();
+
+  // 6-month bar chart
   const months = [];
-  const cursor = new Date(); cursor.setDate(1); cursor.setHours(0, 0, 0, 0);
+  const cursor = new Date(); cursor.setDate(1); cursor.setHours(0,0,0,0);
   for (let i = 5; i >= 0; i--) { const m = new Date(cursor); m.setMonth(m.getMonth() - i); months.push(m); }
-  const expTotals = months.map((m) => sumBy(getMonthList(allExpenses, m), () => true));
+  const expTotals = months.map((m) => sumBy(getMonthList(regExp, m), () => true));
   const incTotals = months.map((m) => sumBy(getMonthList(allIncome, m), () => true));
   const max = Math.max(...expTotals, ...incTotals, 1);
-
   document.getElementById("monthly-chart").innerHTML = months.map((m, i) => `
     <div class="month-bar-col">
       <div class="month-bars-pair">
-        <div class="bar-income" style="height:${(incTotals[i] / max) * 100}%" title="הכנסות: ${Math.round(incTotals[i]).toLocaleString()}₪"></div>
-        <div class="bar-expense" style="height:${(expTotals[i] / max) * 100}%" title="הוצאות: ${Math.round(expTotals[i]).toLocaleString()}₪"></div>
+        <div class="bar-income" style="height:${(incTotals[i]/max)*100}%" title="הכנסות: ${Math.round(incTotals[i]).toLocaleString()}₪"></div>
+        <div class="bar-expense" style="height:${(expTotals[i]/max)*100}%" title="הוצאות: ${Math.round(expTotals[i]).toLocaleString()}₪"></div>
       </div>
       <span class="month-bar-label">${HEBREW_MONTHS_SHORT[m.getMonth()]}</span>
     </div>`).join("");
 }
 
 function renderInsights() {
+  const regExp = regularExpenses();
   const thisMonth = currentMonth;
-  const prevMonth = new Date(thisMonth);
-  prevMonth.setMonth(prevMonth.getMonth() - 1);
-  const thisExp = getMonthList(allExpenses, thisMonth);
-  const prevExp = getMonthList(allExpenses, prevMonth);
+  const prevMonth = new Date(thisMonth); prevMonth.setMonth(prevMonth.getMonth() - 1);
+  const thisExp = getMonthList(regExp, thisMonth);
+  const prevExp = getMonthList(regExp, prevMonth);
   const thisTotal = sumBy(thisExp, () => true);
   const prevTotal = sumBy(prevExp, () => true);
   const delta = thisTotal - prevTotal;
-
   const container = document.getElementById("insights-panel");
   if (thisExp.length === 0 && prevExp.length === 0) {
-    container.innerHTML = `<p class="empty-hint">אין עדיין מספיק נתונים להשוואה</p>`;
-    return;
+    container.innerHTML = `<p class="empty-hint">אין עדיין מספיק נתונים להשוואה</p>`; return;
   }
-
   let summaryHtml = `סך ההוצאות ב${HEBREW_MONTHS[thisMonth.getMonth()]}: <strong>${Math.round(thisTotal).toLocaleString()}₪</strong>`;
   if (prevTotal > 0) {
     const pct = Math.round((delta / prevTotal) * 100);
     if (delta > 0) summaryHtml += ` — עלייה של ${Math.round(delta).toLocaleString()}₪ (${pct}%+) לעומת ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
     else if (delta < 0) summaryHtml += ` — ירידה של ${Math.round(Math.abs(delta)).toLocaleString()}₪ (${Math.abs(pct)}%-) לעומת ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
     else summaryHtml += ` — בדיוק כמו ${HEBREW_MONTHS[prevMonth.getMonth()]}`;
-  } else if (thisTotal > 0) {
-    summaryHtml += ` — אין נתוני השוואה לחודש הקודם`;
-  }
-
-  const thisByCat = groupByCategory(thisExp);
-  const prevByCat = groupByCategory(prevExp);
+  } else if (thisTotal > 0) { summaryHtml += ` — אין נתוני השוואה לחודש הקודם`; }
+  const thisByCat = groupByCategory(thisExp); const prevByCat = groupByCategory(prevExp);
   const allCats = new Set([...Object.keys(thisByCat), ...Object.keys(prevByCat)]);
-  const increases = [...allCats]
-    .map((cat) => ({ cat, diff: (thisByCat[cat] || 0) - (prevByCat[cat] || 0), thisVal: thisByCat[cat] || 0, prevVal: prevByCat[cat] || 0 }))
-    .filter((d) => d.diff > 0)
-    .sort((a, b) => b.diff - a.diff)
-    .slice(0, 4);
-
+  const increases = [...allCats].map((cat) => ({ cat, diff: (thisByCat[cat]||0)-(prevByCat[cat]||0), thisVal: thisByCat[cat]||0, prevVal: prevByCat[cat]||0 })).filter((d) => d.diff > 0).sort((a,b) => b.diff-a.diff).slice(0,4);
   let listHtml = "";
   if (increases.length > 0) {
-    listHtml = `<div class="insight-list">` + increases.map((d) => `
-      <div class="insight-row">
-        <span class="insight-cat">📈 ${escapeHtml(d.cat)}</span>
-        <span class="insight-detail">${Math.round(d.thisVal).toLocaleString()}₪ החודש לעומת ${Math.round(d.prevVal).toLocaleString()}₪ בחודש קודם (+${Math.round(d.diff).toLocaleString()}₪)</span>
-      </div>`).join("") + `</div>`;
+    listHtml = `<div class="insight-list">` + increases.map((d) => `<div class="insight-row"><span class="insight-cat">📈 ${escapeHtml(d.cat)}</span><span class="insight-detail">${Math.round(d.thisVal).toLocaleString()}₪ לעומת ${Math.round(d.prevVal).toLocaleString()}₪ (+${Math.round(d.diff).toLocaleString()}₪)</span></div>`).join("") + `</div>`;
   } else if (thisExp.length > 0) {
     listHtml = `<p class="empty-hint">לא הוצאתם יותר באף קטגוריה לעומת החודש הקודם 🎉</p>`;
   }
-
   container.innerHTML = `<div class="insight-summary">${summaryHtml}</div>${listHtml}`;
 }
+
+/* ============================================================
+   13.7) EVENTS VIEW
+   ============================================================ */
+function renderEventsView() {
+  const active = allEvents.filter((e) => e.active !== false);
+  const closed = allEvents.filter((e) => e.active === false);
+
+  function eventCardHtml(ev) {
+    const evExp = allExpenses.filter((e) => e.eventId === ev.id);
+    const spent = sumBy(evExp, () => true);
+    const budget = ev.budget || 0;
+    const remaining = budget - spent;
+    const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+    const over = spent > budget && budget > 0;
+    const icon = ev.icon || "🎯";
+    return `
+      <div class="event-card">
+        <div class="event-card-top">
+          <span class="event-icon">${escapeHtml(icon)}</span>
+          <div class="event-info">
+            <div class="event-name">${escapeHtml(ev.name)}</div>
+            <div class="event-meta">תקציב: ${Math.round(budget).toLocaleString()}₪  ·  הוצאו: ${Math.round(spent).toLocaleString()}₪</div>
+          </div>
+          <span class="event-remaining ${over ? "over" : remaining < 0.2*budget ? "low" : ""}">${over ? "חריגה!" : `נשאר ${Math.round(remaining).toLocaleString()}₪`}</span>
+        </div>
+        <div class="cat-track event-track">
+          <div class="cat-fill ${over ? "over-budget" : ""}" style="width:${pct}%"></div>
+        </div>
+        <div class="event-card-actions">
+          <button class="mini-btn event-add-exp-btn" data-id="${ev.id}" data-name="${escapeHtml(ev.name)}">+ הוצאה</button>
+          <button class="link-btn event-view-exp-btn" data-id="${ev.id}">הוצאות (${evExp.length})</button>
+          ${ev.active !== false
+            ? `<button class="link-btn event-close-btn" data-id="${ev.id}">סגור אירוע</button>`
+            : `<button class="link-btn event-reopen-btn" data-id="${ev.id}">פתח מחדש</button>`}
+          <button class="row-delete event-delete-btn" data-id="${ev.id}">מחק</button>
+        </div>
+        <div class="event-exp-list hidden" id="event-exp-list-${ev.id}">
+          ${evExp.length === 0 ? `<p class="empty-hint">עדיין אין הוצאות לאירוע הזה</p>` :
+            evExp.map((e) => `
+              <div class="expense-row">
+                <span class="row-dot dot-yosef"></span>
+                <div class="row-main">
+                  <div class="row-title">${escapeHtml(e.description || e.category || "הוצאה")}</div>
+                  <div class="row-meta">${escapeHtml(e.category || "אחר")} · ${escapeHtml(e.paidBy || "")} · ${toDate(e.date).toLocaleDateString("he-IL")}</div>
+                </div>
+                <span class="row-amount">${Math.round(e.amount).toLocaleString()}₪</span>
+                <button class="row-delete" data-eid="${e.id}" aria-label="מחק">✕</button>
+              </div>`).join("")}
+        </div>
+      </div>`;
+  }
+
+  const activeEl = document.getElementById("events-list");
+  activeEl.innerHTML = active.length === 0 ? `<p class="empty-hint">עדיין אין אירועים פעילים</p>` : active.map(eventCardHtml).join("");
+
+  const closedEl = document.getElementById("events-closed-list");
+  closedEl.innerHTML = closed.length === 0 ? `<p class="empty-hint">עדיין אין אירועים שהסתיימו</p>` : closed.map(eventCardHtml).join("");
+
+  document.querySelectorAll(".event-add-exp-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentEventId = btn.dataset.id;
+      document.getElementById("event-expense-title").textContent = `הוצאה לאירוע: ${btn.dataset.name}`;
+      populateCategorySelects();
+      document.getElementById("event-expense-modal-overlay").classList.remove("hidden");
+    });
+  });
+  document.querySelectorAll(".event-view-exp-btn").forEach((btn) => {
+    const listEl = document.getElementById(`event-exp-list-${btn.dataset.id}`);
+    btn.addEventListener("click", () => listEl.classList.toggle("hidden"));
+  });
+  document.querySelectorAll(".event-close-btn").forEach((btn) => {
+    btn.addEventListener("click", () => eventsRef.doc(btn.dataset.id).update({ active: false }));
+  });
+  document.querySelectorAll(".event-reopen-btn").forEach((btn) => {
+    btn.addEventListener("click", () => eventsRef.doc(btn.dataset.id).update({ active: true }));
+  });
+  document.querySelectorAll(".event-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!confirm("למחוק את האירוע? ההוצאות שלו ימחקו גם הן.")) return;
+      const evExp = allExpenses.filter((e) => e.eventId === btn.dataset.id);
+      const batch = db.batch();
+      evExp.forEach((e) => batch.delete(expensesRef.doc(e.id)));
+      batch.delete(eventsRef.doc(btn.dataset.id));
+      batch.commit();
+    });
+  });
+  document.querySelectorAll("[data-eid]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!confirm("למחוק הוצאה זו מהאירוע?")) return;
+      expensesRef.doc(btn.dataset.eid).delete();
+    });
+  });
+}
+
+// New event form
+const eventModalOverlay = document.getElementById("event-modal-overlay");
+document.getElementById("open-add-event").addEventListener("click", () => {
+  document.getElementById("event-form").reset();
+  eventModalOverlay.classList.remove("hidden");
+});
+document.getElementById("close-event-modal").addEventListener("click", () => eventModalOverlay.classList.add("hidden"));
+eventModalOverlay.addEventListener("click", (e) => { if (e.target === eventModalOverlay) eventModalOverlay.classList.add("hidden"); });
+document.getElementById("event-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = document.getElementById("event-name").value.trim();
+  const budget = parseFloat(document.getElementById("event-budget").value);
+  const icon = document.getElementById("event-icon").value.trim() || "🎯";
+  if (!name || !budget || budget <= 0) return;
+  eventsRef.add({ name, budget, icon, active: true, createdAt: firebase.firestore.Timestamp.now() }).then(() => {
+    eventModalOverlay.classList.add("hidden");
+    showToast(`האירוע "${name}" נוצר 🎯`);
+  });
+});
+
+// Add expense to event
+const eventExpenseModalOverlay = document.getElementById("event-expense-modal-overlay");
+document.getElementById("close-event-expense-modal").addEventListener("click", () => {
+  eventExpenseModalOverlay.classList.add("hidden");
+  currentEventId = null;
+});
+eventExpenseModalOverlay.addEventListener("click", (e) => {
+  if (e.target === eventExpenseModalOverlay) { eventExpenseModalOverlay.classList.add("hidden"); currentEventId = null; }
+});
+document.getElementById("event-expense-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!currentEventId) return;
+  const amount = parseFloat(document.getElementById("event-expense-amount").value);
+  const description = document.getElementById("event-expense-desc").value.trim();
+  const category = document.getElementById("event-expense-category").value;
+  const paidBy = document.querySelector('input[name="eventExpenseAccount"]:checked').value;
+  if (!amount || amount <= 0) return;
+  expensesRef.add({
+    amount, description, category, paidBy,
+    eventId: currentEventId, source: "event",
+    date: firebase.firestore.Timestamp.now()
+  }).then(() => {
+    document.getElementById("event-expense-form").reset();
+    document.querySelector('input[name="eventExpenseAccount"][value="יוסף"]').checked = true;
+    eventExpenseModalOverlay.classList.add("hidden");
+    currentEventId = null;
+    showToast("הוצאה נוספה לאירוע ✅");
+  });
+});
 
 /* ============================================================
    13) SETTINGS VIEW

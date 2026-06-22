@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -209,18 +209,47 @@
 
   <!-- ============== REPORTS VIEW ============== -->
   <section class="view hidden" data-view="reports">
+    <!-- Net balance hero card -->
+    <div id="reports-net-card" class="reports-net-card">
+      <div class="reports-net-label">הכנסות מול הוצאות</div>
+      <div id="reports-net-period" class="reports-net-period">החודש הנוכחי</div>
+      <div id="reports-net-figure" class="reports-net-figure">0 ₪</div>
+      <div id="reports-net-sub" class="reports-net-sub"></div>
+    </div>
+
+    <!-- Period selector -->
+    <div class="panel">
+      <div class="report-period-row">
+        <button class="period-btn active" data-period="month">חודשי</button>
+        <button class="period-btn" data-period="quarter">רבעוני</button>
+        <button class="period-btn" data-period="year">שנתי</button>
+        <button class="period-btn" data-period="all">הכל</button>
+      </div>
+    </div>
+
+    <!-- Pie chart - expense/income tabs -->
     <div class="panel">
       <div class="tab-switch">
         <button class="tab-btn active" data-report="expenses">הוצאות</button>
         <button class="tab-btn" data-report="income">הכנסות</button>
       </div>
-      <div class="panel-head"><h2 id="pie-title">פילוח הוצאות (מאז ההתחלה)</h2></div>
+      <div class="panel-head"><h2 id="pie-title">פילוח הוצאות</h2></div>
       <div id="report-pie-wrap"></div>
     </div>
+
+    <!-- Category breakdown table -->
+    <div class="panel">
+      <div class="panel-head"><h2 id="cat-breakdown-title">הוצאות לפי קטגוריה</h2></div>
+      <div id="cat-breakdown-list"></div>
+    </div>
+
+    <!-- Monthly comparison insights -->
     <div class="panel">
       <div class="panel-head"><h2>תובנות לעומת החודש הקודם</h2></div>
       <div id="insights-panel"></div>
     </div>
+
+    <!-- Cash-flow bar chart -->
     <div class="panel">
       <div class="panel-head"><h2>תזרים חודשי (הכנסות מול הוצאות)</h2></div>
       <div id="monthly-chart" class="monthly-chart"></div>
@@ -228,6 +257,22 @@
         <span><i class="legend-dot dot-income"></i> הכנסות</span>
         <span><i class="legend-dot dot-expense"></i> הוצאות</span>
       </div>
+    </div>
+  </section>
+
+  <!-- ============== EVENTS VIEW ============== -->
+  <section class="view hidden" data-view="events">
+    <div class="panel">
+      <div class="panel-head"><h2>תקציבי אירועים</h2></div>
+      <p class="panel-desc">כל אירוע (טיול, שמחה, שיפוץ וכו') מקבל תקציב נפרד. הוצאות האירוע יורדות מהיתרה האמיתית שלכם, אבל לא יופיעו בהוצאות החודשיות הרגילות.</p>
+      <button id="open-add-event" class="submit-btn">+ אירוע חדש</button>
+    </div>
+    <div id="events-list-panel" class="panel">
+      <div id="events-list"><p class="empty-hint">עדיין אין אירועים פעילים</p></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>אירועים שהסתיימו</h2></div>
+      <div id="events-closed-list"><p class="empty-hint">עדיין אין אירועים שהסתיימו</p></div>
     </div>
   </section>
 
@@ -380,6 +425,73 @@
         </div>
       </div>
       <button type="submit" class="submit-btn" id="recurring-submit-btn">הוספה + חיוב ראשון עכשיו</button>
+    </form>
+  </div>
+</div>
+
+<!-- New event modal -->
+<div id="event-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="event-modal-title">אירוע חדש</h3>
+      <button id="close-event-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <form id="event-form">
+      <label class="field">
+        <span>שם האירוע</span>
+        <input type="text" id="event-name" required placeholder="לדוגמה: טיול איטליה, שיפוץ מטבח">
+      </label>
+      <label class="field">
+        <span>תקציב מתוכנן (₪)</span>
+        <input type="number" id="event-budget" inputmode="decimal" min="0" step="1" required placeholder="0">
+      </label>
+      <label class="field">
+        <span>אמוג'י / סמל</span>
+        <input type="text" id="event-icon" placeholder="✈️" maxlength="4" class="icon-picker">
+      </label>
+      <button type="submit" class="submit-btn">יצירת האירוע</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add expense to event modal -->
+<div id="event-expense-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="event-expense-title">הוצאה לאירוע</h3>
+      <button id="close-event-expense-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <form id="event-expense-form">
+      <label class="field">
+        <span>סכום (₪)</span>
+        <input type="number" id="event-expense-amount" inputmode="decimal" min="0" step="0.1" required>
+      </label>
+      <label class="field">
+        <span>על מה?</span>
+        <input type="text" id="event-expense-desc" placeholder="לדוגמה: מלון, כרטיסי טיסה, אוכל">
+      </label>
+      <label class="field">
+        <span>קטגוריה</span>
+        <select id="event-expense-category"></select>
+      </label>
+      <div class="field">
+        <span>מי שילם?</span>
+        <div class="who-pay">
+          <label class="who-option">
+            <input type="radio" name="eventExpenseAccount" value="יוסף" checked><span>יוסף</span>
+          </label>
+          <label class="who-option">
+            <input type="radio" name="eventExpenseAccount" value="אגם"><span>אגם</span>
+          </label>
+          <label class="who-option who-option-cash">
+            <input type="radio" name="eventExpenseAccount" value="מזומן"><span>מזומן 💵</span>
+          </label>
+          <label class="who-option who-option-savings">
+            <input type="radio" name="eventExpenseAccount" value="חיסכון"><span>חיסכון 💰</span>
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn">הוספת הוצאה</button>
     </form>
   </div>
 </div>
@@ -550,6 +662,10 @@
         <span class="drawer-icon">🔁</span>
         <span class="drawer-item-text"><span class="drawer-item-title">תנועות קבועות</span><span class="drawer-item-sub">הכנסות והוצאות חוזרות</span></span>
       </button>
+      <button class="drawer-item" data-view="events">
+        <span class="drawer-icon">🎯</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">תקציבי אירועים</span><span class="drawer-item-sub">טיולים ואירועים מיוחדים</span></span>
+      </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
         <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">פיצ׳רים ומגמות</span></span>
@@ -569,6 +685,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

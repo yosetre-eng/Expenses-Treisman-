@@ -386,7 +386,49 @@ body::after{
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-/* Bank import */
+/* Reports - net balance hero card */
+.reports-net-card{
+  border-radius:24px;padding:20px 20px 22px;color:#fff;margin-bottom:16px;
+  box-shadow:var(--shadow-pop);position:relative;overflow:hidden;
+  transition:background .3s ease;
+}
+.reports-net-card.net-positive{background:linear-gradient(135deg,#1F8A4D 0%,#1F8A7D 100%);}
+.reports-net-card.net-negative{background:linear-gradient(135deg,#C94B6E 0%,#8E2B46 100%);}
+.reports-net-label{font-size:13px;opacity:.85;margin-bottom:4px;}
+.reports-net-period{font-size:11.5px;opacity:.7;margin-bottom:10px;}
+.reports-net-figure{font-size:38px;font-weight:800;font-family:var(--font-display);line-height:1.1;margin-bottom:6px;}
+.reports-net-sub{font-size:12.5px;opacity:.82;}
+
+/* Period selector */
+.report-period-row{display:flex;gap:8px;flex-wrap:wrap;}
+.period-btn{
+  flex:1;min-width:60px;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);
+  font-weight:700;font-size:13px;padding:8px 4px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;
+}
+.period-btn.active{background:var(--gradient);border-color:transparent;color:#fff;}
+
+/* Category breakdown table */
+.cat-row-detail{margin-bottom:12px;}
+.cat-row-top{display:flex;justify-content:space-between;margin-bottom:5px;}
+.cat-row-name{font-weight:600;font-size:13.5px;}
+.cat-row-amt{font-weight:800;font-family:var(--font-display);font-size:14px;}
+.cat-row-pct{font-size:11.5px;color:var(--muted);margin-top:3px;display:block;}
+
+/* Events */
+.event-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+.event-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.event-icon{font-size:28px;flex-shrink:0;line-height:1;}
+.event-info{flex:1;min-width:0;}
+.event-name{font-weight:800;font-size:15px;font-family:var(--font-display);}
+.event-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.event-remaining{font-weight:800;font-size:13px;white-space:nowrap;font-family:var(--font-display);color:var(--green);}
+.event-remaining.low{color:var(--amber);}
+.event-remaining.over{color:var(--agam);}
+.event-track{margin:8px 0 10px;}
+.event-card-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px;}
+.event-exp-list{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
+.event-exp-list.hidden{display:none;}
+.icon-picker{font-size:22px;text-align:center;max-width:80px;}
 .import-modal{max-height:92vh;}
 .import-toolbar{display:flex;gap:8px;margin:14px 0 10px;}
 .import-toolbar .mini-btn{background:var(--card);border:1.5px solid var(--border);color:var(--text);}
