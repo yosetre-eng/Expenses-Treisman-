@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מיגרציה — הקופה המשותפת</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#FBF7F3;color:#221A2C;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:#fff;border-radius:24px;padding:32px 28px;width:100%;max-width:460px;box-shadow:0 16px 40px rgba(30,20,50,.12);}
+.logo{text-align:center;margin-bottom:24px;}
+.logo img{width:64px;height:64px;border-radius:16px;margin-bottom:8px;}
+h1{font-size:21px;font-weight:800;text-align:center;margin-bottom:4px;}
+.sub{color:#8A8294;font-size:13px;text-align:center;margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:5px;}
+.field input{width:100%;border:1.5px solid #F1E9E2;border-radius:12px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;}
+.field input:focus{border-color:#1F8A7D;}
+.btn{width:100%;background:linear-gradient(135deg,#1F8A7D,#8E5BA8,#E0577A);color:#fff;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:4px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.status-box{margin-top:20px;border-radius:14px;padding:16px;font-size:13px;line-height:1.7;display:none;}
+.status-box.info{background:#E3F4F1;color:#1F8A7D;}
+.status-box.error{background:#FCEAEF;color:#C94B6E;}
+.status-box.success{background:#E6F8EC;color:#1F8A4D;}
+.progress-bar{background:#F1E9E2;border-radius:99px;height:8px;margin:10px 0;}
+.progress-fill{background:linear-gradient(90deg,#1F8A7D,#E0577A);height:8px;border-radius:99px;transition:width .3s ease;width:0%;}
+.step{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #F1E9E2;}
+.step:last-child{border:none;}
+.step-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;}
+.step-text{font-size:13px;}
+.step.done .step-icon::before{content:"✅";}
+.step.running .step-icon::before{content:"⏳";}
+.step.waiting .step-icon::before{content:"⭕";}
+.step.error .step-icon::before{content:"❌";}
+.warning{background:#FBF0DC;color:#C2790E;border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.6;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1F8A7D,#8E5BA8,#E0577A);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 8px;">₪</div>
+    <h1>מיגרציה — הקופה המשותפת</h1>
+    <p class="sub">העברת כל הנתונים מהחשבון הישן לחדש</p>
+  </div>
+
+  <div class="warning">
+    ⚠️ <strong>לפני שמתחילים:</strong> ודאו שנרשמתם לחשבון החדש עם יוסף ואגם כשמות. המיגרציה תעביר הוצאות, הכנסות, חובות, תנועות קבועות, אירועים ויתרות חשבון.
+  </div>
+
+  <div id="login-section">
+    <div class="field">
+      <label>אימייל (של החשבון החדש)</label>
+      <input type="email" id="email" placeholder="yosetre@gmail.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>סיסמא</label>
+      <input type="password" id="password" placeholder="••••••" autocomplete="current-password">
+    </div>
+    <button class="btn" id="start-btn" onclick="startMigration()">🚀 התחל מיגרציה</button>
+  </div>
+
+  <div class="status-box info" id="status-box">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div id="steps-list"></div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<script>
+// ─────────────────────────────────────────────
+// Firebase configs
+// ─────────────────────────────────────────────
+const OLD_CONFIG = {
+  apiKey: "AIzaSyCG1-bpYRaxCbicwXQe2cHuswYGd3EHChw",
+  authDomain: "expenses-treisman.firebaseapp.com",
+  projectId: "expenses-treisman",
+  storageBucket: "expenses-treisman.firebasestorage.app",
+  messagingSenderId: "177078353973",
+  appId: "1:177078353973:web:9adcb16bc67b5105c3b17c"
+};
+const NEW_CONFIG = {
+  apiKey: "AIzaSyBVy_5hZGPBGLqgKP_qkJt6mrrRqCE3hVY",
+  authDomain: "binyamin-and-tehila.firebaseapp.com",
+  projectId: "binyamin-and-tehila",
+  storageBucket: "binyamin-and-tehila.firebasestorage.app",
+  messagingSenderId: "160269274799",
+  appId: "1:160269274799:web:628413a3f64aa353060e5a"
+};
+
+// Init two separate Firebase app instances
+const oldApp = firebase.initializeApp(OLD_CONFIG, "old");
+const newApp = firebase.initializeApp(NEW_CONFIG, "new");
+const oldDb  = oldApp.firestore();
+const newDb  = newApp.firestore();
+const newAuth = newApp.auth();
+
+// ─────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────
+const steps = [
+  { id: "auth",      label: "כניסה לחשבון החדש" },
+  { id: "read",      label: "קריאת נתונים מהחשבון הישן" },
+  { id: "expenses",  label: "העברת הוצאות" },
+  { id: "income",    label: "העברת הכנסות" },
+  { id: "debts",     label: "העברת חובות" },
+  { id: "recurring", label: "העברת תנועות קבועות" },
+  { id: "events",    label: "העברת אירועים" },
+  { id: "config",    label: "העברת יתרות והגדרות" },
+];
+let stepState = {};
+
+function renderSteps() {
+  document.getElementById("steps-list").innerHTML = steps.map(s => {
+    const state = stepState[s.id] || "waiting";
+    const extra = stepState[s.id + "_detail"] ? ` <span style="opacity:.7">(${stepState[s.id + "_detail"]})</span>` : "";
+    return `<div class="step ${state}"><span class="step-icon"></span><span class="step-text">${s.label}${extra}</span></div>`;
+  }).join("");
+  // calc progress
+  const done = steps.filter(s => stepState[s.id] === "done").length;
+  document.getElementById("progress-fill").style.width = `${(done/steps.length)*100}%`;
+}
+
+function setStep(id, state, detail) {
+  stepState[id] = state;
+  if (detail) stepState[id + "_detail"] = detail;
+  renderSteps();
+}
+
+function showStatus(type) {
+  const box = document.getElementById("status-box");
+  box.style.display = "block";
+  box.className = "status-box " + type;
+  renderSteps();
+}
+
+function showError(msg) {
+  const box = document.getElementById("status-box");
+  box.style.display = "block";
+  box.className = "status-box error";
+  box.innerHTML = `<strong>שגיאה:</strong> ${msg}`;
+}
+
+// ─────────────────────────────────────────────
+// Copy a collection in batches of 400
+// ─────────────────────────────────────────────
+async function copyCollection(oldRef, newRef, count) {
+  const snap = await oldRef.get();
+  const docs = snap.docs;
+  if (docs.length === 0) return 0;
+  const chunkSize = 400;
+  for (let i = 0; i < docs.length; i += chunkSize) {
+    const batch = newDb.batch();
+    docs.slice(i, i + chunkSize).forEach(doc => {
+      batch.set(newRef.doc(doc.id), doc.data());
+    });
+    await batch.commit();
+  }
+  return docs.length;
+}
+
+// ─────────────────────────────────────────────
+// Main migration
+// ─────────────────────────────────────────────
+async function startMigration() {
+  const email    = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  if (!email || !password) { alert("נא להזין אימייל וסיסמא"); return; }
+
+  document.getElementById("start-btn").disabled = true;
+  steps.forEach(s => stepState[s.id] = "waiting");
+  showStatus("info");
+
+  try {
+    // ── 1. Login to new account ──
+    setStep("auth", "running");
+    const cred = await newAuth.signInWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
+    setStep("auth", "done");
+
+    // ── 2. Read old data ──
+    setStep("read", "running");
+    const oldExpenses  = await oldDb.collection("expenses").get();
+    const oldIncome    = await oldDb.collection("income").get();
+    const oldDebts     = await oldDb.collection("debts").get();
+    const oldRecurring = await oldDb.collection("recurringExpenses").get();
+    const oldEvents    = await oldDb.collection("events").get();
+    const oldConfigDoc = await oldDb.collection("meta").doc("config").get();
+    setStep("read", "done",
+      `${oldExpenses.size} הוצאות, ${oldIncome.size} הכנסות, ${oldDebts.size} חובות, ${oldRecurring.size} קבועות, ${oldEvents.size} אירועים`);
+
+    const userDoc = newDb.collection("users").doc(uid);
+
+    // ── 3. Expenses ──
+    setStep("expenses", "running");
+    let n = await copyCollection(
+      oldDb.collection("expenses"),
+      userDoc.collection("expenses"),
+    );
+    setStep("expenses", "done", `${oldExpenses.size} תנועות`);
+
+    // ── 4. Income ──
+    setStep("income", "running");
+    await copyCollection(oldDb.collection("income"), userDoc.collection("income"));
+    setStep("income", "done", `${oldIncome.size} תנועות`);
+
+    // ── 5. Debts ──
+    setStep("debts", "running");
+    await copyCollection(oldDb.collection("debts"), userDoc.collection("debts"));
+    setStep("debts", "done", `${oldDebts.size} חובות`);
+
+    // ── 6. Recurring ──
+    setStep("recurring", "running");
+    await copyCollection(oldDb.collection("recurringExpenses"), userDoc.collection("recurringExpenses"));
+    setStep("recurring", "done", `${oldRecurring.size} תנועות`);
+
+    // ── 7. Events ──
+    setStep("events", "running");
+    await copyCollection(oldDb.collection("events"), userDoc.collection("events"));
+    setStep("events", "done", `${oldEvents.size} אירועים`);
+
+    // ── 8. Config (balances, categories, budgets) ──
+    setStep("config", "running");
+    if (oldConfigDoc.exists) {
+      const oldCfg = oldConfigDoc.data();
+      // Get current new config to keep partner names already set
+      const newConfigDoc = await userDoc.collection("meta").doc("config").get();
+      const newCfg = newConfigDoc.exists ? newConfigDoc.data() : {};
+      const mergedCfg = {
+        ...newCfg, // keep partner1Name, partner2Name
+        categories:        oldCfg.categories        || newCfg.categories,
+        incomeCategories:  oldCfg.incomeCategories  || newCfg.incomeCategories,
+        budgets:           oldCfg.budgets            || {},
+        accountBalances:   oldCfg.accountBalances    || {},
+        savingsGoals:      oldCfg.savingsGoals       || [],
+        maaserEnabled:     oldCfg.maaserEnabled      || false,
+        isSelfEmployed:    oldCfg.isSelfEmployed     || false,
+      };
+      await userDoc.collection("meta").doc("config").set(mergedCfg);
+    }
+    setStep("config", "done", "יתרות, קטגוריות, תקציבים ועוד");
+
+    // ── Done ──
+    const box = document.getElementById("status-box");
+    box.className = "status-box success";
+    const total = oldExpenses.size + oldIncome.size;
+    box.innerHTML += `<div style="margin-top:14px;font-weight:700;font-size:14px;">✅ המיגרציה הושלמה בהצלחה! ${total} תנועות הועברו לחשבון החדש.</div>
+      <div style="margin-top:8px;font-size:12.5px;opacity:.8">עכשיו אפשר לסגור דף זה ולהיכנס לאפליקציה החדשה — כל הנתונים מחכים שם.</div>`;
+
+  } catch(err) {
+    console.error(err);
+    const errMsgs = {
+      "auth/wrong-password": "סיסמא שגויה",
+      "auth/user-not-found": "האימייל לא נמצא",
+      "auth/invalid-credential": "אימייל או סיסמא שגויים",
+      "permission-denied": "אין הרשאה — ודאו שכללי האבטחה עודכנו בFirestore"
+    };
+    showError(errMsgs[err.code] || err.message);
+    document.getElementById("start-btn").disabled = false;
+  }
+}
+</script>
+</body>
+</html>
