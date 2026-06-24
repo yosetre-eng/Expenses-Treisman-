@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
@@ -290,8 +290,8 @@
           <span id="maaser-total-income" class="maaser-stat-val">0₪</span>
         </div>
         <div class="maaser-stat">
-          <span class="maaser-stat-label">ניכוי הוצאות עסק</span>
-          <span id="maaser-business-deduct" class="maaser-stat-val deduct">0₪</span>
+          <span class="maaser-stat-label">10% = חובת מעשרות</span>
+          <span id="maaser-owed-stat" class="maaser-stat-val">0₪</span>
         </div>
         <div class="maaser-stat">
           <span class="maaser-stat-label">שולם עד כה</span>
@@ -334,15 +334,13 @@
       </div>
       <div class="setting-row" id="self-employed-row">
         <div class="setting-row-info">
-          <span class="setting-row-title">מי עצמאי/ת?</span>
-          <span class="setting-row-sub">הוצאות עסק יורדות מבסיס חישוב המעשרות</span>
+          <span class="setting-row-title">הזוג עצמאי/ת</span>
+          <span class="setting-row-sub">מוסיף קטגוריית "עסק" להוצאות — לא משפיע על חישוב המעשרות</span>
         </div>
-        <select id="self-employed-select" class="setting-select">
-          <option value="none">אף אחד</option>
-          <option value="יוסף">יוסף</option>
-          <option value="אגם">אגם</option>
-          <option value="both">שניהם</option>
-        </select>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-self-employed">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
     </div>
     <div class="panel">
@@ -797,6 +795,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

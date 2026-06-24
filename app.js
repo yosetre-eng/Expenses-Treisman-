@@ -51,7 +51,7 @@ let config = {
   accountBalances: { "יוסף": 0, "אגם": 0, "מזומן": 0 },
   savingsGoals: [],
   maaserEnabled: false,
-  selfEmployed: "none"
+  isSelfEmployed: false
 };
 
 const HEBREW_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
@@ -102,7 +102,7 @@ configRef.onSnapshot((doc) => {
     accountBalances: data.accountBalances || { "יוסף": 0, "אגם": 0, "מזומן": 0 },
     savingsGoals: data.savingsGoals || [],
     maaserEnabled: data.maaserEnabled || false,
-    selfEmployed: data.selfEmployed || "none"
+    isSelfEmployed: data.isSelfEmployed || false
   };
   populateCategorySelects();
   applyMaaserSettings();
@@ -1068,8 +1068,7 @@ function renderSettingsView() {
   renderCategoryChips(document.getElementById("category-manage-list"), config.categories, "categories");
   renderCategoryChips(document.getElementById("income-category-manage-list"), config.incomeCategories, "incomeCategories");
   document.getElementById("toggle-maaser").checked = config.maaserEnabled;
-  document.getElementById("self-employed-select").value = config.selfEmployed;
-  document.getElementById("self-employed-row").classList.toggle("hidden", !config.maaserEnabled);
+  document.getElementById("toggle-self-employed").checked = config.isSelfEmployed;
 }
 function renderCategoryChips(container, list, field) {
   container.innerHTML = list.map((cat) => `<span class="category-chip">${escapeHtml(cat)}<button data-cat="${escapeHtml(cat)}" aria-label="הסר">✕</button></span>`).join("");
@@ -1379,12 +1378,13 @@ document.getElementById("expense-form").addEventListener("submit", (e) => {
 
   if (modalType === "income") {
     incomeRef.add({ amount, description, category, account, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
+      if (account === "מזומן") showToast("מס הכנסה בדרך 😅💵");
       resetAndClose();
       triggerBalanceFlash(account, balanceBefore, balanceBefore + amount, "income");
     });
   } else {
     expensesRef.add({ amount, description, category, paidBy: account, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
-      if (account === "מזומן") showToast("אין על כסף שחור משחור 💵😄");
+      if (account === "מזומן") showToast("מס הכנסה בדרך 😅💵");
       else if (account === "אגם") showToast("הופההה האישה שילמה מי היה מאמין 😂");
       else if (account === "יוסף") showToast("סוף סוף הגבר משלם 😎");
       resetAndClose();
@@ -1437,32 +1437,25 @@ function resetAndClose() {
 function computeMaaserData() {
   const maaserAccounts = ["יוסף", "אגם", "מזומן"];
   const totalIncome = sumBy(allIncome, (i) => maaserAccounts.includes(i.account));
-  const businessExpenses = config.selfEmployed !== "none"
-    ? sumBy(allExpenses, (e) => e.category === "עסק")
-    : 0;
-  const base = Math.max(0, totalIncome - businessExpenses);
-  const owed = base * 0.1;
+  const owed = totalIncome * 0.1;
   const paid = sumBy(allExpenses, (e) => e.category === "מעשרות");
   const remaining = Math.max(0, owed - paid);
-  return { totalIncome, businessExpenses, base, owed, paid, remaining };
+  return { totalIncome, owed, paid, remaining };
 }
 
 function renderMaaserView() {
-  const { totalIncome, businessExpenses, base, owed, paid, remaining } = computeMaaserData();
+  const { totalIncome, owed, paid, remaining } = computeMaaserData();
   const card = document.getElementById("maaser-hero");
   card.className = "maaser-hero " + (remaining > 0 ? "maaser-owes" : "maaser-clear");
   document.getElementById("maaser-owed-fig").textContent = `${Math.round(owed).toLocaleString()} ₪`;
   document.getElementById("maaser-hero-sub").textContent =
     remaining > 0 ? `נשאר לשלם ${Math.round(remaining).toLocaleString()}₪` : `✅ המעשרות שולמו במלואם!`;
   document.getElementById("maaser-total-income").textContent = `${Math.round(totalIncome).toLocaleString()}₪`;
-  document.getElementById("maaser-business-deduct").textContent = businessExpenses > 0 ? `-${Math.round(businessExpenses).toLocaleString()}₪` : "0₪";
+  document.getElementById("maaser-owed-stat").textContent = `${Math.round(owed).toLocaleString()}₪`;
   document.getElementById("maaser-paid-total").textContent = `${Math.round(paid).toLocaleString()}₪`;
   document.getElementById("maaser-remaining").textContent = `${Math.round(remaining).toLocaleString()}₪`;
-
-  let calcText = `חישוב: 10% מסך ההכנסות (${Math.round(totalIncome).toLocaleString()}₪)`;
-  if (businessExpenses > 0) calcText += ` בניכוי הוצאות עסק (${Math.round(businessExpenses).toLocaleString()}₪) = בסיס ${Math.round(base).toLocaleString()}₪ → מעשרות ${Math.round(owed).toLocaleString()}₪`;
-  else calcText += ` = ${Math.round(owed).toLocaleString()}₪`;
-  document.getElementById("maaser-calc-explanation").textContent = calcText;
+  document.getElementById("maaser-calc-explanation").textContent =
+    `חישוב: 10% × ${Math.round(totalIncome).toLocaleString()}₪ הכנסות = ${Math.round(owed).toLocaleString()}₪ חובת מעשרות. שולמו ${Math.round(paid).toLocaleString()}₪ → נותר ${Math.round(remaining).toLocaleString()}₪.`;
 
   const maaserPayments = allExpenses.filter((e) => e.category === "מעשרות").sort((a,b) => toDate(b.date)-toDate(a.date));
   const listEl = document.getElementById("maaser-payments-list");
@@ -1521,44 +1514,40 @@ document.getElementById("maaser-form").addEventListener("submit", (e) => {
    13.9) SETTINGS TOGGLES (maaser + self-employed)
    ============================================================ */
 function applyMaaserSettings() {
-  const enabled = config.maaserEnabled;
+  const { maaserEnabled, isSelfEmployed } = config;
+
+  // Show/hide maaser drawer item
   const maaserDrawerItem = document.getElementById("maaser-drawer-item");
-  if (maaserDrawerItem) maaserDrawerItem.classList.toggle("hidden", !enabled);
-  const selfRow = document.getElementById("self-employed-row");
-  if (selfRow) selfRow.classList.toggle("hidden", !enabled);
+  if (maaserDrawerItem) maaserDrawerItem.classList.toggle("hidden", !maaserEnabled);
 
-  // Sync toggle states to current config
+  // Sync toggle UI
   const maaserToggle = document.getElementById("toggle-maaser");
-  if (maaserToggle && maaserToggle.checked !== enabled) maaserToggle.checked = enabled;
-  const seSelect = document.getElementById("self-employed-select");
-  if (seSelect && seSelect.value !== config.selfEmployed) seSelect.value = config.selfEmployed;
+  if (maaserToggle && maaserToggle.checked !== maaserEnabled) maaserToggle.checked = maaserEnabled;
+  const seToggle = document.getElementById("toggle-self-employed");
+  if (seToggle && seToggle.checked !== isSelfEmployed) seToggle.checked = isSelfEmployed;
 
-  // If self-employed, expose "עסק" in expense categories
-  const businessCatNeeded = config.selfEmployed !== "none";
-  const hasBusinessCat = config.categories.includes("עסק");
-  if (businessCatNeeded && !hasBusinessCat) {
-    const newCats = [...config.categories, "עסק"];
-    configRef.set({ categories: newCats }, { merge: true });
-  } else if (!businessCatNeeded && hasBusinessCat) {
-    const newCats = config.categories.filter((c) => c !== "עסק");
-    configRef.set({ categories: newCats }, { merge: true });
+  // Manage "מעשרות" category
+  const hasMaaserCat = config.categories.includes("מעשרות");
+  if (maaserEnabled && !hasMaaserCat) {
+    configRef.set({ categories: [...config.categories, "מעשרות"] }, { merge: true });
+  } else if (!maaserEnabled && hasMaaserCat) {
+    configRef.set({ categories: config.categories.filter((c) => c !== "מעשרות") }, { merge: true });
   }
 
-  // Maaser category
-  const maaserCatNeeded = enabled;
-  const hasMaaserCat = config.categories.includes("מעשרות");
-  if (maaserCatNeeded && !hasMaaserCat) {
-    configRef.set({ categories: [...config.categories, "מעשרות"] }, { merge: true });
-  } else if (!maaserCatNeeded && hasMaaserCat) {
-    configRef.set({ categories: config.categories.filter((c) => c !== "מעשרות") }, { merge: true });
+  // Manage "עסק" category (self-employed only, independent of maaser)
+  const hasBusinessCat = config.categories.includes("עסק");
+  if (isSelfEmployed && !hasBusinessCat) {
+    configRef.set({ categories: [...config.categories, "עסק"] }, { merge: true });
+  } else if (!isSelfEmployed && hasBusinessCat) {
+    configRef.set({ categories: config.categories.filter((c) => c !== "עסק") }, { merge: true });
   }
 }
 
 document.getElementById("toggle-maaser").addEventListener("change", (e) => {
   configRef.set({ maaserEnabled: e.target.checked }, { merge: true });
 });
-document.getElementById("self-employed-select").addEventListener("change", (e) => {
-  configRef.set({ selfEmployed: e.target.value }, { merge: true });
+document.getElementById("toggle-self-employed").addEventListener("change", (e) => {
+  configRef.set({ isSelfEmployed: e.target.checked }, { merge: true });
 });
 
 /* ============================================================
