@@ -49,7 +49,9 @@ let config = {
   incomeCategories: DEFAULT_INCOME_CATEGORIES,
   budgets: {},
   accountBalances: { "יוסף": 0, "אגם": 0, "מזומן": 0 },
-  savingsGoals: []
+  savingsGoals: [],
+  maaserEnabled: false,
+  selfEmployed: "none"
 };
 
 const HEBREW_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
@@ -98,9 +100,12 @@ configRef.onSnapshot((doc) => {
     incomeCategories: data.incomeCategories && data.incomeCategories.length ? data.incomeCategories : DEFAULT_INCOME_CATEGORIES,
     budgets: data.budgets || {},
     accountBalances: data.accountBalances || { "יוסף": 0, "אגם": 0, "מזומן": 0 },
-    savingsGoals: data.savingsGoals || []
+    savingsGoals: data.savingsGoals || [],
+    maaserEnabled: data.maaserEnabled || false,
+    selfEmployed: data.selfEmployed || "none"
   };
   populateCategorySelects();
+  applyMaaserSettings();
   renderCurrentView();
 });
 
@@ -135,6 +140,7 @@ function renderCurrentView() {
   else if (currentView === "budget") renderBudgetView();
   else if (currentView === "reports") renderReportsView();
   else if (currentView === "events") renderEventsView();
+  else if (currentView === "maaser") renderMaaserView();
   else if (currentView === "debts") renderDebtsView();
   else if (currentView === "recurring") renderRecurringView();
   else if (currentView === "settings") renderSettingsView();
@@ -1061,6 +1067,9 @@ document.getElementById("event-expense-form").addEventListener("submit", (e) => 
 function renderSettingsView() {
   renderCategoryChips(document.getElementById("category-manage-list"), config.categories, "categories");
   renderCategoryChips(document.getElementById("income-category-manage-list"), config.incomeCategories, "incomeCategories");
+  document.getElementById("toggle-maaser").checked = config.maaserEnabled;
+  document.getElementById("self-employed-select").value = config.selfEmployed;
+  document.getElementById("self-employed-row").classList.toggle("hidden", !config.maaserEnabled);
 }
 function renderCategoryChips(container, list, field) {
   container.innerHTML = list.map((cat) => `<span class="category-chip">${escapeHtml(cat)}<button data-cat="${escapeHtml(cat)}" aria-label="הסר">✕</button></span>`).join("");
@@ -1366,21 +1375,191 @@ document.getElementById("expense-form").addEventListener("submit", (e) => {
   const account = document.querySelector('input[name="payAccount"]:checked').value;
   if (!amount || amount <= 0) return;
 
+  const balanceBefore = computeAccountBalance(account);
+
   if (modalType === "income") {
-    incomeRef.add({ amount, description, category, account, source: "web", date: firebase.firestore.Timestamp.now() }).then(resetAndClose);
+    incomeRef.add({ amount, description, category, account, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
+      resetAndClose();
+      triggerBalanceFlash(account, balanceBefore, balanceBefore + amount, "income");
+    });
   } else {
     expensesRef.add({ amount, description, category, paidBy: account, source: "web", date: firebase.firestore.Timestamp.now() }).then(() => {
-      if (account === "אגם") showToast("הופההה האישה שילמה מי היה מאמין 😂");
+      if (account === "מזומן") showToast("אין על כסף שחור משחור 💵😄");
+      else if (account === "אגם") showToast("הופההה האישה שילמה מי היה מאמין 😂");
       else if (account === "יוסף") showToast("סוף סוף הגבר משלם 😎");
       resetAndClose();
+      triggerBalanceFlash(account, balanceBefore, balanceBefore - amount, "expense");
     });
   }
 });
+
+function triggerBalanceFlash(account, oldBal, newBal, type) {
+  const icons = { "יוסף": "👤", "אגם": "👩", "מזומן": "💵", "חיסכון": "💰" };
+  const flashEl = document.getElementById("balance-flash");
+  const amountEl = document.getElementById("balance-flash-amount");
+  const deltaEl = document.getElementById("balance-flash-delta");
+  document.getElementById("balance-flash-icon").textContent = icons[account] || "💳";
+  document.getElementById("balance-flash-label").textContent = account;
+  const diff = newBal - oldBal;
+  deltaEl.textContent = (diff >= 0 ? "+" : "") + Math.round(diff).toLocaleString() + "₪";
+  deltaEl.className = "balance-flash-delta " + (type === "income" ? "delta-up" : "delta-down");
+  flashEl.classList.remove("hidden", "flash-out");
+
+  let startTime = null;
+  const duration = 1400;
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    const p = Math.min((ts - startTime) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    const current = oldBal + (newBal - oldBal) * ease;
+    amountEl.textContent = Math.round(current).toLocaleString() + " ₪";
+    if (p < 1) requestAnimationFrame(animate);
+    else amountEl.textContent = Math.round(newBal).toLocaleString() + " ₪";
+  }
+  requestAnimationFrame(animate);
+
+  clearTimeout(window._flashTimer);
+  window._flashTimer = setTimeout(() => {
+    flashEl.classList.add("flash-out");
+    setTimeout(() => flashEl.classList.add("hidden"), 400);
+  }, 2600);
+}
+
 function resetAndClose() {
   document.getElementById("expense-form").reset();
   document.querySelector('input[name="payAccount"][value="יוסף"]').checked = true;
   overlay.classList.add("hidden");
 }
+
+/* ============================================================
+   13.8) MAASER VIEW
+   ============================================================ */
+function computeMaaserData() {
+  const maaserAccounts = ["יוסף", "אגם", "מזומן"];
+  const totalIncome = sumBy(allIncome, (i) => maaserAccounts.includes(i.account));
+  const businessExpenses = config.selfEmployed !== "none"
+    ? sumBy(allExpenses, (e) => e.category === "עסק")
+    : 0;
+  const base = Math.max(0, totalIncome - businessExpenses);
+  const owed = base * 0.1;
+  const paid = sumBy(allExpenses, (e) => e.category === "מעשרות");
+  const remaining = Math.max(0, owed - paid);
+  return { totalIncome, businessExpenses, base, owed, paid, remaining };
+}
+
+function renderMaaserView() {
+  const { totalIncome, businessExpenses, base, owed, paid, remaining } = computeMaaserData();
+  const card = document.getElementById("maaser-hero");
+  card.className = "maaser-hero " + (remaining > 0 ? "maaser-owes" : "maaser-clear");
+  document.getElementById("maaser-owed-fig").textContent = `${Math.round(owed).toLocaleString()} ₪`;
+  document.getElementById("maaser-hero-sub").textContent =
+    remaining > 0 ? `נשאר לשלם ${Math.round(remaining).toLocaleString()}₪` : `✅ המעשרות שולמו במלואם!`;
+  document.getElementById("maaser-total-income").textContent = `${Math.round(totalIncome).toLocaleString()}₪`;
+  document.getElementById("maaser-business-deduct").textContent = businessExpenses > 0 ? `-${Math.round(businessExpenses).toLocaleString()}₪` : "0₪";
+  document.getElementById("maaser-paid-total").textContent = `${Math.round(paid).toLocaleString()}₪`;
+  document.getElementById("maaser-remaining").textContent = `${Math.round(remaining).toLocaleString()}₪`;
+
+  let calcText = `חישוב: 10% מסך ההכנסות (${Math.round(totalIncome).toLocaleString()}₪)`;
+  if (businessExpenses > 0) calcText += ` בניכוי הוצאות עסק (${Math.round(businessExpenses).toLocaleString()}₪) = בסיס ${Math.round(base).toLocaleString()}₪ → מעשרות ${Math.round(owed).toLocaleString()}₪`;
+  else calcText += ` = ${Math.round(owed).toLocaleString()}₪`;
+  document.getElementById("maaser-calc-explanation").textContent = calcText;
+
+  const maaserPayments = allExpenses.filter((e) => e.category === "מעשרות").sort((a,b) => toDate(b.date)-toDate(a.date));
+  const listEl = document.getElementById("maaser-payments-list");
+  if (maaserPayments.length === 0) {
+    listEl.innerHTML = `<p class="empty-hint">עדיין לא שולמו מעשרות</p>`;
+  } else {
+    listEl.innerHTML = maaserPayments.map((e) => {
+      const dateStr = toDate(e.date).toLocaleDateString("he-IL", { day:"numeric", month:"short", year:"numeric" });
+      return `<div class="expense-row">
+        <span class="row-dot" style="background:var(--yosef)"></span>
+        <div class="row-main">
+          <div class="row-title">${escapeHtml(e.description || "תשלום מעשרות")}</div>
+          <div class="row-meta">מעשרות · ${escapeHtml(e.paidBy||"")} · ${dateStr}</div>
+        </div>
+        <span class="row-amount">${Math.round(e.amount).toLocaleString()}₪</span>
+        <button class="row-delete" data-eid="${e.id}">✕</button>
+      </div>`;
+    }).join("");
+    listEl.querySelectorAll(".row-delete").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (confirm("למחוק תשלום מעשרות זה?")) expensesRef.doc(btn.dataset.eid).delete();
+      });
+    });
+  }
+}
+
+const maaserModalOverlay = document.getElementById("maaser-modal-overlay");
+document.getElementById("open-add-maaser").addEventListener("click", () => {
+  document.getElementById("maaser-form").reset();
+  document.querySelector('input[name="maaserAccount"][value="יוסף"]').checked = true;
+  const { remaining } = computeMaaserData();
+  if (remaining > 0) document.getElementById("maaser-amount").value = Math.round(remaining);
+  maaserModalOverlay.classList.remove("hidden");
+});
+document.getElementById("close-maaser-modal").addEventListener("click", () => maaserModalOverlay.classList.add("hidden"));
+maaserModalOverlay.addEventListener("click", (e) => { if (e.target === maaserModalOverlay) maaserModalOverlay.classList.add("hidden"); });
+document.getElementById("maaser-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const amount = parseFloat(document.getElementById("maaser-amount").value);
+  const org = document.getElementById("maaser-org").value.trim();
+  const account = document.querySelector('input[name="maaserAccount"]:checked').value;
+  if (!amount || amount <= 0) return;
+  const balBefore = computeAccountBalance(account);
+  expensesRef.add({
+    amount, description: org || "מעשרות לצדקה",
+    category: "מעשרות", paidBy: account,
+    source: "maaser", date: firebase.firestore.Timestamp.now()
+  }).then(() => {
+    maaserModalOverlay.classList.add("hidden");
+    showToast("🤲 תשלום מעשרות נרשם — מצוה!");
+    triggerBalanceFlash(account, balBefore, balBefore - amount, "expense");
+  });
+});
+
+/* ============================================================
+   13.9) SETTINGS TOGGLES (maaser + self-employed)
+   ============================================================ */
+function applyMaaserSettings() {
+  const enabled = config.maaserEnabled;
+  const maaserDrawerItem = document.getElementById("maaser-drawer-item");
+  if (maaserDrawerItem) maaserDrawerItem.classList.toggle("hidden", !enabled);
+  const selfRow = document.getElementById("self-employed-row");
+  if (selfRow) selfRow.classList.toggle("hidden", !enabled);
+
+  // Sync toggle states to current config
+  const maaserToggle = document.getElementById("toggle-maaser");
+  if (maaserToggle && maaserToggle.checked !== enabled) maaserToggle.checked = enabled;
+  const seSelect = document.getElementById("self-employed-select");
+  if (seSelect && seSelect.value !== config.selfEmployed) seSelect.value = config.selfEmployed;
+
+  // If self-employed, expose "עסק" in expense categories
+  const businessCatNeeded = config.selfEmployed !== "none";
+  const hasBusinessCat = config.categories.includes("עסק");
+  if (businessCatNeeded && !hasBusinessCat) {
+    const newCats = [...config.categories, "עסק"];
+    configRef.set({ categories: newCats }, { merge: true });
+  } else if (!businessCatNeeded && hasBusinessCat) {
+    const newCats = config.categories.filter((c) => c !== "עסק");
+    configRef.set({ categories: newCats }, { merge: true });
+  }
+
+  // Maaser category
+  const maaserCatNeeded = enabled;
+  const hasMaaserCat = config.categories.includes("מעשרות");
+  if (maaserCatNeeded && !hasMaaserCat) {
+    configRef.set({ categories: [...config.categories, "מעשרות"] }, { merge: true });
+  } else if (!maaserCatNeeded && hasMaaserCat) {
+    configRef.set({ categories: config.categories.filter((c) => c !== "מעשרות") }, { merge: true });
+  }
+}
+
+document.getElementById("toggle-maaser").addEventListener("change", (e) => {
+  configRef.set({ maaserEnabled: e.target.checked }, { merge: true });
+});
+document.getElementById("self-employed-select").addEventListener("change", (e) => {
+  configRef.set({ selfEmployed: e.target.value }, { merge: true });
+});
 
 /* ============================================================
    15) Init

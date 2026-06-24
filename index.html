@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -276,8 +276,75 @@
     </div>
   </section>
 
+  <!-- ============== MAASER VIEW ============== -->
+  <section class="view hidden" data-view="maaser">
+    <div id="maaser-hero" class="maaser-hero">
+      <div class="maaser-hero-label">חובת מעשרות כוללת</div>
+      <div id="maaser-owed-fig" class="maaser-hero-fig">0 ₪</div>
+      <div id="maaser-hero-sub" class="maaser-hero-sub"></div>
+    </div>
+    <div class="panel">
+      <div class="maaser-stat-row">
+        <div class="maaser-stat">
+          <span class="maaser-stat-label">סך הכנסות לחישוב</span>
+          <span id="maaser-total-income" class="maaser-stat-val">0₪</span>
+        </div>
+        <div class="maaser-stat">
+          <span class="maaser-stat-label">ניכוי הוצאות עסק</span>
+          <span id="maaser-business-deduct" class="maaser-stat-val deduct">0₪</span>
+        </div>
+        <div class="maaser-stat">
+          <span class="maaser-stat-label">שולם עד כה</span>
+          <span id="maaser-paid-total" class="maaser-stat-val paid">0₪</span>
+        </div>
+        <div class="maaser-stat">
+          <span class="maaser-stat-label">נשאר לשלם</span>
+          <span id="maaser-remaining" class="maaser-stat-val remaining">0₪</span>
+        </div>
+      </div>
+      <button id="open-add-maaser" class="submit-btn">+ תשלום מעשרות לצדקה</button>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>תשלומי מעשרות</h2></div>
+      <div id="maaser-payments-list" class="expense-list">
+        <p class="empty-hint">עדיין לא שולמו מעשרות</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head panel-head-row">
+        <h2>אופן חישוב</h2>
+      </div>
+      <p class="panel-desc" id="maaser-calc-explanation"></p>
+    </div>
+  </section>
+
   <!-- ============== SETTINGS VIEW ============== -->
   <section class="view hidden" data-view="settings">
+    <div class="panel">
+      <div class="panel-head"><h2>הגדרות כלליות</h2></div>
+      <div class="setting-row">
+        <div class="setting-row-info">
+          <span class="setting-row-title">מוציאים מעשרות</span>
+          <span class="setting-row-sub">הצג מסך מעשרות וחשב חובת תרומה (10% מהכנסות)</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-maaser">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row" id="self-employed-row">
+        <div class="setting-row-info">
+          <span class="setting-row-title">מי עצמאי/ת?</span>
+          <span class="setting-row-sub">הוצאות עסק יורדות מבסיס חישוב המעשרות</span>
+        </div>
+        <select id="self-employed-select" class="setting-select">
+          <option value="none">אף אחד</option>
+          <option value="יוסף">יוסף</option>
+          <option value="אגם">אגם</option>
+          <option value="both">שניהם</option>
+        </select>
+      </div>
+    </div>
     <div class="panel">
       <div class="panel-head"><h2>קטגוריות הוצאה</h2></div>
       <div id="category-manage-list" class="category-manage-list"></div>
@@ -426,6 +493,47 @@
       </div>
       <button type="submit" class="submit-btn" id="recurring-submit-btn">הוספה + חיוב ראשון עכשיו</button>
     </form>
+  </div>
+</div>
+
+<!-- Maaser payment modal -->
+<div id="maaser-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>תשלום מעשרות לצדקה</h3>
+      <button id="close-maaser-modal" class="modal-close" aria-label="סגור">✕</button>
+    </div>
+    <form id="maaser-form">
+      <label class="field">
+        <span>סכום (₪)</span>
+        <input type="number" id="maaser-amount" inputmode="decimal" min="0" step="0.01" required>
+      </label>
+      <label class="field">
+        <span>שם העמותה / הנמען</span>
+        <input type="text" id="maaser-org" placeholder="לדוגמה: חברה אלמונית, כולל פלוני">
+      </label>
+      <div class="field">
+        <span>מאיזה ארנק?</span>
+        <div class="who-pay">
+          <label class="who-option"><input type="radio" name="maaserAccount" value="יוסף" checked><span>יוסף</span></label>
+          <label class="who-option"><input type="radio" name="maaserAccount" value="אגם"><span>אגם</span></label>
+          <label class="who-option who-option-cash"><input type="radio" name="maaserAccount" value="מזומן"><span>מזומן 💵</span></label>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn">שמירת התשלום</button>
+    </form>
+  </div>
+</div>
+
+<!-- Balance flash overlay -->
+<div id="balance-flash" class="balance-flash hidden" aria-live="polite">
+  <div class="balance-flash-inner">
+    <div id="balance-flash-icon" class="balance-flash-icon">💵</div>
+    <div class="balance-flash-content">
+      <div id="balance-flash-label" class="balance-flash-label">מזומן</div>
+      <div id="balance-flash-amount" class="balance-flash-amount">0 ₪</div>
+      <div id="balance-flash-delta" class="balance-flash-delta"></div>
+    </div>
   </div>
 </div>
 
@@ -666,6 +774,10 @@
         <span class="drawer-icon">🎯</span>
         <span class="drawer-item-text"><span class="drawer-item-title">תקציבי אירועים</span><span class="drawer-item-sub">טיולים ואירועים מיוחדים</span></span>
       </button>
+      <button class="drawer-item hidden" id="maaser-drawer-item" data-view="maaser">
+        <span class="drawer-icon">🤲</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">מעשרות</span><span class="drawer-item-sub">חישוב ותשלום לצדקה</span></span>
+      </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
         <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">פיצ׳רים ומגמות</span></span>
@@ -685,6 +797,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

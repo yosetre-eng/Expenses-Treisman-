@@ -386,7 +386,68 @@ body::after{
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-/* Reports - net balance hero card */
+/* Balance flash overlay */
+.balance-flash{
+  position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--card);border-radius:20px;padding:14px 20px;
+  box-shadow:0 16px 40px rgba(30,20,50,.18);
+  display:flex;align-items:center;gap:14px;
+  z-index:150;opacity:0;pointer-events:none;
+  transition:transform .3s cubic-bezier(.22,1,.36,1), opacity .3s ease;
+  min-width:220px;border:1px solid var(--border);
+}
+.balance-flash:not(.hidden){opacity:1;transform:translateX(-50%) translateY(0);}
+.balance-flash.flash-out{opacity:0;transform:translateX(-50%) translateY(12px);}
+.balance-flash.hidden{display:none;}
+.balance-flash-icon{font-size:30px;line-height:1;flex-shrink:0;}
+.balance-flash-label{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px;}
+.balance-flash-amount{font-size:22px;font-weight:800;font-family:var(--font-display);color:var(--text);}
+.balance-flash-delta{font-size:13px;font-weight:700;margin-top:1px;}
+.delta-up{color:var(--green);}
+.delta-down{color:var(--agam);}
+
+/* Settings toggles */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-row-info{flex:1;min-width:0;padding-inline-end:12px;}
+.setting-row-title{display:block;font-weight:700;font-size:14px;}
+.setting-row-sub{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
+.toggle-switch{position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--border);border-radius:999px;cursor:pointer;
+  transition:background .25s;
+}
+.toggle-slider::before{
+  content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:transform .25s;box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+.toggle-switch input:checked + .toggle-slider{background:var(--gradient);}
+.toggle-switch input:checked + .toggle-slider::before{transform:translateX(22px);}
+.setting-select{
+  border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  padding:7px 10px;font-size:13.5px;font-family:inherit;background:var(--bg);color:var(--text);
+  min-width:100px;
+}
+
+/* Maaser view */
+.maaser-hero{
+  border-radius:24px;padding:22px 20px 24px;color:#fff;margin-bottom:16px;
+  box-shadow:var(--shadow-pop);text-align:start;
+}
+.maaser-hero.maaser-owes{background:linear-gradient(135deg,#C94B6E 0%,#8E5BA8 100%);}
+.maaser-hero.maaser-clear{background:linear-gradient(135deg,#1F8A4D 0%,#1F8A7D 100%);}
+.maaser-hero-label{font-size:13px;opacity:.85;margin-bottom:4px;}
+.maaser-hero-fig{font-size:40px;font-weight:800;font-family:var(--font-display);line-height:1.1;margin-bottom:6px;}
+.maaser-hero-sub{font-size:13px;opacity:.88;font-weight:600;}
+.maaser-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.maaser-stat{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;text-align:end;}
+.maaser-stat-label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;}
+.maaser-stat-val{display:block;font-size:18px;font-weight:800;font-family:var(--font-display);color:var(--text);}
+.maaser-stat-val.deduct{color:var(--peach);}
+.maaser-stat-val.paid{color:var(--green);}
+.maaser-stat-val.remaining{color:var(--agam);}
 .reports-net-card{
   border-radius:24px;padding:20px 20px 22px;color:#fff;margin-bottom:16px;
   box-shadow:var(--shadow-pop);position:relative;overflow:hidden;
