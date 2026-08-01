@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 
@@ -68,6 +68,11 @@
 </div>
 
 <div id="app">
+  <div id="pwa-app-banner" class="pwa-app-banner hidden">
+    <span>📲 הוסיפו למסך הבית לחוויה מיטבית</span>
+    <button onclick="document.getElementById('pwa-modal-overlay').classList.remove('hidden')" class="pwa-app-banner-btn">איך?</button>
+    <button onclick="dismissPwaBanner()" class="pwa-app-banner-close">✕</button>
+  </div>
 
   <!-- Top bar -->
   <header class="topbar">
@@ -84,6 +89,10 @@
 
   <!-- ============== DASHBOARD VIEW ============== -->
   <section class="view" data-view="dashboard">
+    <div class="quotes-banner" id="quotes-banner">
+      <span class="quotes-icon">💡</span>
+      <span id="quotes-text" class="quotes-text"></span>
+    </div>
 
     <div class="month-bar">
       <button id="prev-month" class="month-arrow" aria-label="חודש קודם">‹</button>
@@ -99,7 +108,7 @@
 
     <div class="hero-card">
       <div class="hero-top">
-        <span class="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
+        <span class="hero-eyebrow" id="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
         <span class="hero-badge" id="hero-badge">פעיל</span>
       </div>
       <div class="hero-figure" id="hero-figure">0 ₪</div>
@@ -422,8 +431,23 @@
       <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
     </div>
     <div class="panel">
+      <div class="panel-head"><h2>תמונת פרופיל</h2></div>
+      <div class="profile-pic-section">
+        <div id="profile-pic-display" class="profile-pic-display">
+          <span id="profile-pic-initial">י</span>
+          <img id="profile-pic-img" class="hidden" alt="תמונת פרופיל">
+        </div>
+        <div>
+          <input type="file" id="profile-pic-input" accept="image/*" class="hidden">
+          <button id="profile-pic-btn" class="mini-btn" style="display:block;margin-bottom:6px;">📷 בחר תמונה</button>
+          <button id="profile-pic-remove" class="link-btn hidden">הסר תמונה</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
       <div class="panel-head"><h2>החשבון שלנו</h2></div>
       <p class="panel-desc" id="settings-user-email"></p>
+      <button id="restart-tutorial-btn" class="submit-btn" style="background:var(--purple-tint);color:var(--purple);margin-bottom:8px;">🎓 הפעל מדריך מחדש</button>
       <button id="logout-btn" class="submit-btn logout-btn">יציאה מהחשבון</button>
     </div>
     <div class="panel danger-panel">
@@ -490,7 +514,7 @@
 </div>
 
 <!-- Floating add button -->
-<button id="open-add" class="fab" aria-label="הוסף">+</button>
+<button id="open-add" class="fab" aria-label="הוסף">➕ הוספת הוצאה / הכנסה</button>
 
 <!-- Add recurring expense/income modal -->
 <div id="recurring-modal-overlay" class="modal-overlay hidden">
@@ -655,6 +679,22 @@
       </div>
       <button type="submit" class="submit-btn">הוספת הוצאה</button>
     </form>
+  </div>
+</div>
+
+<!-- Tutorial overlay -->
+<div id="tutorial-overlay" class="tutorial-overlay hidden">
+  <div id="tutorial-bubble" class="tutorial-bubble">
+    <div class="tutorial-header">
+      <span id="tutorial-step-label" class="tutorial-step-label">שלב 1 מתוך 11</span>
+      <button class="tutorial-end-btn" onclick="endTutorial()">✕ סיים</button>
+    </div>
+    <h3 id="tutorial-title"></h3>
+    <p id="tutorial-desc"></p>
+    <div class="tutorial-nav">
+      <button id="tutorial-prev" class="mini-btn" onclick="prevTutorialStep()" style="opacity:0;">‹ הקודם</button>
+      <button id="tutorial-next" class="submit-btn" style="flex:1;margin-inline-start:8px;" onclick="nextTutorialStep()">הבא ›</button>
+    </div>
   </div>
 </div>
 
@@ -852,6 +892,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>
