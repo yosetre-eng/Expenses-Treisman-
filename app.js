@@ -35,8 +35,11 @@ let currentView = "dashboard";
 let modalType = "expense";
 let reportType = "expenses";
 let reportPeriod = "month";
+let reportPartnerFilter = "all";
 let recurringModalType = "expense";
 let currentEventId = null;
+let currentEditId = null;
+let currentEditType = null; // 'expense' | 'income'
 
 const DEFAULT_CATEGORIES = ["אוכל", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
@@ -102,12 +105,17 @@ configRef.onSnapshot((doc) => {
     accountBalances: data.accountBalances || { "יוסף": 0, "אגם": 0, "מזומן": 0 },
     savingsGoals: data.savingsGoals || [],
     profilePic: data.profilePic || null,
-    maaserEnabled: data.maaserEnabled || false,
+    maaserEnabled: data.maaserEnabled !== undefined ? data.maaserEnabled : true,
     selfEmployed: data.selfEmployed || "none"
   };
   updateProfilePicDisplay();
   populateCategorySelects();
   applyMaaserSettings();
+  // Update partner filter labels
+  const pfp1 = document.getElementById("partner-filter-p1");
+  const pfp2 = document.getElementById("partner-filter-p2");
+  if (pfp1) pfp1.textContent = p1();
+  if (pfp2) pfp2.textContent = p2();
   renderCurrentView();
 });
 
@@ -255,6 +263,7 @@ function rowHtml(e, type) {
         <div class="row-meta">${escapeHtml(e.category || "אחר")} · ${escapeHtml(who || "")} · ${dateStr}${sourceTag}</div>
       </div>
       <span class="${amountClass}">${prefix}${Math.round(e.amount).toLocaleString()}₪</span>
+      <button class="row-edit" data-id="${e.id}" data-type="${type}" aria-label="ערוך">✏️</button>
       <button class="row-delete" data-id="${e.id}" data-type="${type}" aria-label="מחק">✕</button>
     </div>`;
 }
@@ -796,6 +805,13 @@ document.querySelectorAll("[data-period]").forEach((btn) => {
     renderReportsView();
   });
 });
+document.querySelectorAll("[data-partner-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    reportPartnerFilter = btn.dataset.partnerFilter;
+    document.querySelectorAll("[data-partner-filter]").forEach((b) => b.classList.toggle("active", b.dataset.partnerFilter === reportPartnerFilter));
+    renderReportsView();
+  });
+});
 
 function getReportDateRange() {
   const now = new Date();
@@ -826,8 +842,13 @@ function filterByRange(list, { start, end }) {
 function renderReportsView() {
   const range = getReportDateRange();
   const regExp = regularExpenses();
-  const periodExp = filterByRange(regExp, range);
-  const periodInc = filterByRange(allIncome, range);
+  let periodExp = filterByRange(regExp, range);
+  let periodInc = filterByRange(allIncome, range);
+  if (reportPartnerFilter !== "all") {
+    const fn = reportPartnerFilter === "p1" ? p1() : p2();
+    periodExp = periodExp.filter(e => e.paidBy === fn);
+    periodInc = periodInc.filter(e => e.account === fn);
+  }
   const totalExp = sumBy(periodExp, () => true);
   const totalInc = sumBy(periodInc, () => true);
   const net = totalInc - totalExp;
@@ -1434,6 +1455,11 @@ function triggerBalanceFlash(account, oldBal, newBal, type) {
 }
 
 function resetAndClose() {
+  currentEditId = null; currentEditType = null;
+  const titleEl = document.getElementById("modal-title");
+  const submitEl = document.getElementById("submit-btn");
+  if (titleEl) titleEl.textContent = "הוצאה חדשה";
+  if (submitEl) submitEl.textContent = "הוסף";
   document.getElementById("expense-form").reset();
   document.querySelector('input[name="payAccount"][value="יוסף"]').checked = true;
   overlay.classList.add("hidden");

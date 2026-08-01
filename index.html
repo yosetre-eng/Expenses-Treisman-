@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 
@@ -233,6 +233,11 @@
         <button class="period-btn" data-period="quarter">רבעוני</button>
         <button class="period-btn" data-period="year">שנתי</button>
         <button class="period-btn" data-period="all">הכל</button>
+      </div>
+      <div class="report-partner-row" id="report-partner-row">
+        <button class="partner-filter-btn active" data-partner-filter="all">כולם</button>
+        <button class="partner-filter-btn" data-partner-filter="p1" id="partner-filter-p1">יוסף</button>
+        <button class="partner-filter-btn" data-partner-filter="p2" id="partner-filter-p2">אגם</button>
       </div>
     </div>
 
@@ -750,7 +755,7 @@
           </label>
         </div>
       </div>
-      <button type="submit" class="submit-btn" id="submit-btn">הוסף הוצאה</button>
+      <button type="submit" class="submit-btn" id="submit-btn">הוסף</button>
     </form>
   </div>
 </div>
@@ -822,6 +827,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

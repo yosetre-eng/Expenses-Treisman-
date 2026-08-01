@@ -542,3 +542,12 @@ body::after{
 .pwa-app-banner.hidden{display:none;}
 .pwa-app-banner-btn{background:rgba(255,255,255,.25);border:none;border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-inline-start:auto;}
 .pwa-app-banner-close{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;}
+
+/* ── Edit button ── */
+.row-edit{background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px;opacity:.6;flex-shrink:0;}
+.row-edit:hover{opacity:1;}
+
+/* ── Partner filter in reports ── */
+.report-partner-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.partner-filter-btn{flex:1;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-weight:700;font-size:12.5px;padding:7px 4px;border-radius:999px;cursor:pointer;font-family:inherit;}
+.partner-filter-btn.active{background:var(--gradient);border-color:transparent;color:#fff;}
