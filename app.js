@@ -17,15 +17,7 @@ const auth = firebase.auth();
 let expensesRef, incomeRef, debtsRef, recurringRef, eventsRef, configRef;
 let firestoreUnsubscribers = [];
 
-function initFirestoreRefs(uid) {
-  const userDoc = db.collection("users").doc(uid);
-  expensesRef = userDoc.collection("expenses");
-  incomeRef   = userDoc.collection("income");
-  debtsRef    = userDoc.collection("debts");
-  recurringRef = userDoc.collection("recurringExpenses");
-  eventsRef   = userDoc.collection("events");
-  configRef   = userDoc.collection("meta").doc("config");
-}
+// initFirestoreRefs not needed in personal app
 
 function startFirestoreListeners() {
   firestoreUnsubscribers.forEach((fn) => fn());
@@ -159,115 +151,19 @@ function updatePartnerNamesInUI() {
 }
 
 /* ============================================================
-   3) Auth state — drives everything
+   3) Direct Firestore init (no auth needed)
    ============================================================ */
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    document.getElementById("auth-overlay").classList.add("hidden");
-    document.getElementById("app").classList.remove("app-hidden");
-    initFirestoreRefs(user.uid);
-    startFirestoreListeners();
-    const emailEl = document.getElementById("settings-user-email");
-    if (emailEl) emailEl.textContent = user.email;
-  } else {
-    stopFirestoreListeners();
-    allExpenses = []; allIncome = []; allDebts = []; allRecurring = []; allEvents = [];
-    document.getElementById("auth-overlay").classList.remove("hidden");
-    document.getElementById("app").classList.add("app-hidden");
-  }
-});
-
-/* ============================================================
-   4) Auth UI handlers
-   ============================================================ */
-function showAuthError(msg) {
-  const el = document.getElementById("auth-error");
-  el.textContent = msg; el.classList.remove("hidden");
-}
-function clearAuthError() {
-  document.getElementById("auth-error").classList.add("hidden");
-}
-function setAuthLoading(on) {
-  document.getElementById("auth-loading").classList.toggle("hidden", !on);
-}
-
-// Tab switch
-document.querySelectorAll("[data-auth-tab]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const tab = btn.dataset.authTab;
-    document.querySelectorAll("[data-auth-tab]").forEach((b) => b.classList.toggle("active", b.dataset.authTab === tab));
-    document.getElementById("login-form").classList.toggle("hidden", tab !== "login");
-    document.getElementById("register-form").classList.toggle("hidden", tab !== "register");
-    clearAuthError();
-  });
-});
-
-// Login
-document.getElementById("login-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  clearAuthError();
-  setAuthLoading(true);
-  const email = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value;
-  auth.signInWithEmailAndPassword(email, password).catch((err) => {
-    setAuthLoading(false);
-    showAuthError(authErrorMessage(err.code));
-  });
-});
-
-// Register
-document.getElementById("register-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  clearAuthError();
-  const p1Name = document.getElementById("reg-partner1").value.trim();
-  const p2Name = document.getElementById("reg-partner2").value.trim();
-  const email = document.getElementById("reg-email").value.trim();
-  const password = document.getElementById("reg-password").value;
-  if (!p1Name || !p2Name) { showAuthError("נא להזין שמות לשני בני הזוג"); return; }
-  setAuthLoading(true);
-  auth.createUserWithEmailAndPassword(email, password).then((cred) => {
-    const uid = cred.user.uid;
-    const userDoc = db.collection("users").doc(uid);
-    const defaultCfg = {
-      partner1Name: p1Name,
-      partner2Name: p2Name,
-      categories: DEFAULT_CATEGORIES,
-      incomeCategories: DEFAULT_INCOME_CATEGORIES,
-      budgets: {},
-      accountBalances: { [p1Name]: 0, [p2Name]: 0, "מזומן": 0 },
-      savingsGoals: [],
-      maaserEnabled: false,
-      isSelfEmployed: false
-    };
-    return userDoc.collection("meta").doc("config").set(defaultCfg);
-  }).catch((err) => {
-    setAuthLoading(false);
-    showAuthError(authErrorMessage(err.code));
-  });
-});
-
-// Forgot password
-document.getElementById("forgot-password-btn").addEventListener("click", () => {
-  const email = document.getElementById("login-email").value.trim();
-  if (!email) { showAuthError("הזינו את האימייל כדי לאפס סיסמא"); return; }
-  auth.sendPasswordResetEmail(email).then(() => {
-    clearAuthError();
-    document.getElementById("auth-error").textContent = "📧 נשלח מייל לאיפוס סיסמא";
-    document.getElementById("auth-error").classList.remove("hidden");
-  }).catch(() => showAuthError("לא הצלחנו למצוא את האימייל הזה"));
-});
-
-function authErrorMessage(code) {
-  const map = {
-    "auth/user-not-found": "לא נמצא משתמש עם האימייל הזה",
-    "auth/wrong-password": "סיסמא שגויה",
-    "auth/email-already-in-use": "האימייל הזה כבר רשום — נסו להתחבר",
-    "auth/weak-password": "הסיסמא חלשה מדי — לפחות 6 תווים",
-    "auth/invalid-email": "כתובת אימייל לא תקינה",
-    "auth/invalid-credential": "אימייל או סיסמא שגויים"
-  };
-  return map[code] || "שגיאה — נסו שוב";
-}
+(function initDirect() {
+  const userDoc = db.collection("meta");
+  expensesRef   = db.collection("expenses");
+  incomeRef     = db.collection("income");
+  debtsRef      = db.collection("debts");
+  recurringRef  = db.collection("recurringExpenses");
+  eventsRef     = db.collection("events");
+  configRef     = db.collection("meta").doc("config");
+  startFirestoreListeners();
+  showPwaBanner();
+})();
 
 /* ============================================================
    5) Navigation
@@ -1859,4 +1755,4 @@ function dismissPwaBanner() {
    ============================================================ */
 // Startup is driven by auth.onAuthStateChanged above.
 // Hide app until auth confirmed.
-document.getElementById("app").classList.add("app-hidden");
+
