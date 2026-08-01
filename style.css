@@ -43,7 +43,7 @@ body{
   color:var(--text);
   font-family:'Heebo',-apple-system,BlinkMacSystemFont,sans-serif;
   -webkit-font-smoothing:antialiased;
-  padding-bottom:calc(80px + env(safe-area-inset-bottom));
+  padding-bottom:calc(100px + env(safe-area-inset-bottom));
   position:relative;
   overflow-x:hidden;
 }
@@ -322,15 +322,9 @@ body::after{
 
 /* Floating action button */
 .fab{
-  position:fixed;bottom:0;left:0;right:0;
-  height:calc(56px + env(safe-area-inset-bottom));
-  padding-bottom:env(safe-area-inset-bottom);
-  border-radius:20px 20px 0 0;
-  background:linear-gradient(135deg,#34B86A,#1F8A4D);color:#fff;
-  font-size:16px;font-weight:800;font-family:inherit;
-  border:none;box-shadow:0 -4px 20px rgba(31,138,77,.3);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  gap:8px;z-index:30;
+  position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));inset-inline-end:24px;width:56px;height:56px;border-radius:18px;
+  background:linear-gradient(135deg,#34B86A,#1F8A4D);color:#fff;font-size:30px;font-weight:400;border:none;
+  box-shadow:0 10px 24px rgba(31,138,77,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:30;
 }
 
 /* Modal */
@@ -545,35 +539,6 @@ body::after{
 .import-badge-transfer{background:var(--amber-tint);color:var(--amber);}
 .import-category-select{margin-top:7px;width:100%;border:1px solid var(--border);border-radius:10px;
   padding:6px 8px;font-size:12.5px;font-family:inherit;background:var(--bg);color:var(--text);}
-
-
-/* ── Quotes ── */
-.quotes-banner{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(31,138,125,.07),rgba(142,91,168,.07));border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--muted);font-style:italic;border:1px solid var(--border);min-height:42px;}
-.quotes-icon{font-size:15px;flex-shrink:0;}
-.quotes-text{transition:opacity .4s ease;flex:1;line-height:1.5;}
-
-/* ── Tutorial bottom strip ── */
-.tutorial-overlay{position:fixed;inset:0;z-index:480;pointer-events:none;}
-.tutorial-overlay.hidden{display:none;}
-.tutorial-bubble{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:20px 20px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(20,10,50,.18);z-index:483;pointer-events:auto;border-top:3px solid var(--yosef);}
-.tutorial-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.tutorial-step-label{font-size:11.5px;color:var(--yosef);font-weight:700;}
-.tutorial-end-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;}
-.tutorial-bubble h3{font-size:16px;font-weight:800;margin-bottom:4px;}
-.tutorial-bubble p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
-.tutorial-nav{display:flex;align-items:center;gap:8px;}
-
-/* ── Profile picture ── */
-.profile-pic-section{display:flex;align-items:center;gap:16px;padding:6px 0;}
-.profile-pic-display{width:72px;height:72px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 4px 12px rgba(70,40,60,.2);}
-#profile-pic-initial{color:#fff;font-size:28px;font-weight:800;font-family:var(--font-display);}
-#profile-pic-img{width:100%;height:100%;object-fit:cover;}
-
-/* ── PWA app banner ── */
-.pwa-app-banner{background:var(--gradient);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
-.pwa-app-banner.hidden{display:none;}
-.pwa-app-banner-btn{background:rgba(255,255,255,.25);border:none;border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-inline-start:auto;}
-.pwa-app-banner-close{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;padding:0 2px;}
 
 @media (prefers-reduced-motion: reduce){
   .modal,.drawer{animation:none;}
