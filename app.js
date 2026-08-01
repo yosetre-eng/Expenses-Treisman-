@@ -17,7 +17,15 @@ const auth = firebase.auth();
 let expensesRef, incomeRef, debtsRef, recurringRef, eventsRef, configRef;
 let firestoreUnsubscribers = [];
 
-// initFirestoreRefs not needed in personal app
+function initFirestoreRefs(uid) {
+  const userDoc = db.collection("users").doc(uid);
+  expensesRef = userDoc.collection("expenses");
+  incomeRef   = userDoc.collection("income");
+  debtsRef    = userDoc.collection("debts");
+  recurringRef = userDoc.collection("recurringExpenses");
+  eventsRef   = userDoc.collection("events");
+  configRef   = userDoc.collection("meta").doc("config");
+}
 
 function startFirestoreListeners() {
   firestoreUnsubscribers.forEach((fn) => fn());
@@ -26,7 +34,6 @@ function startFirestoreListeners() {
     expensesRef.orderBy("date", "desc").onSnapshot((s) => {
       allExpenses = s.docs.map((d) => ({ id: d.id, ...d.data() }));
       renderCurrentView();
-showPwaBanner();
     }, (e) => console.error("expenses:", e))
   );
   firestoreUnsubscribers.push(
@@ -151,19 +158,115 @@ function updatePartnerNamesInUI() {
 }
 
 /* ============================================================
-   3) Direct Firestore init (no auth needed)
+   3) Auth state — drives everything
    ============================================================ */
-(function initDirect() {
-  const userDoc = db.collection("meta");
-  expensesRef   = db.collection("expenses");
-  incomeRef     = db.collection("income");
-  debtsRef      = db.collection("debts");
-  recurringRef  = db.collection("recurringExpenses");
-  eventsRef     = db.collection("events");
-  configRef     = db.collection("meta").doc("config");
-  startFirestoreListeners();
-  showPwaBanner();
-})();
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    document.getElementById("auth-overlay").classList.add("hidden");
+    document.getElementById("app").classList.remove("app-hidden");
+    initFirestoreRefs(user.uid);
+    startFirestoreListeners();
+    const emailEl = document.getElementById("settings-user-email");
+    if (emailEl) emailEl.textContent = user.email;
+  } else {
+    stopFirestoreListeners();
+    allExpenses = []; allIncome = []; allDebts = []; allRecurring = []; allEvents = [];
+    document.getElementById("auth-overlay").classList.remove("hidden");
+    document.getElementById("app").classList.add("app-hidden");
+  }
+});
+
+/* ============================================================
+   4) Auth UI handlers
+   ============================================================ */
+function showAuthError(msg) {
+  const el = document.getElementById("auth-error");
+  el.textContent = msg; el.classList.remove("hidden");
+}
+function clearAuthError() {
+  document.getElementById("auth-error").classList.add("hidden");
+}
+function setAuthLoading(on) {
+  document.getElementById("auth-loading").classList.toggle("hidden", !on);
+}
+
+// Tab switch
+document.querySelectorAll("[data-auth-tab]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.authTab;
+    document.querySelectorAll("[data-auth-tab]").forEach((b) => b.classList.toggle("active", b.dataset.authTab === tab));
+    document.getElementById("login-form").classList.toggle("hidden", tab !== "login");
+    document.getElementById("register-form").classList.toggle("hidden", tab !== "register");
+    clearAuthError();
+  });
+});
+
+// Login
+document.getElementById("login-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  clearAuthError();
+  setAuthLoading(true);
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  auth.signInWithEmailAndPassword(email, password).catch((err) => {
+    setAuthLoading(false);
+    showAuthError(authErrorMessage(err.code));
+  });
+});
+
+// Register
+document.getElementById("register-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  clearAuthError();
+  const p1Name = document.getElementById("reg-partner1").value.trim();
+  const p2Name = document.getElementById("reg-partner2").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const password = document.getElementById("reg-password").value;
+  if (!p1Name || !p2Name) { showAuthError("נא להזין שמות לשני בני הזוג"); return; }
+  setAuthLoading(true);
+  auth.createUserWithEmailAndPassword(email, password).then((cred) => {
+    const uid = cred.user.uid;
+    const userDoc = db.collection("users").doc(uid);
+    const defaultCfg = {
+      partner1Name: p1Name,
+      partner2Name: p2Name,
+      categories: DEFAULT_CATEGORIES,
+      incomeCategories: DEFAULT_INCOME_CATEGORIES,
+      budgets: {},
+      accountBalances: { [p1Name]: 0, [p2Name]: 0, "מזומן": 0 },
+      savingsGoals: [],
+      maaserEnabled: false,
+      isSelfEmployed: false
+    };
+    return userDoc.collection("meta").doc("config").set(defaultCfg);
+  }).catch((err) => {
+    setAuthLoading(false);
+    showAuthError(authErrorMessage(err.code));
+  });
+});
+
+// Forgot password
+document.getElementById("forgot-password-btn").addEventListener("click", () => {
+  const email = document.getElementById("login-email").value.trim();
+  if (!email) { showAuthError("הזינו את האימייל כדי לאפס סיסמא"); return; }
+  auth.sendPasswordResetEmail(email).then(() => {
+    clearAuthError();
+    document.getElementById("auth-error").textContent = "📧 נשלח מייל לאיפוס סיסמא";
+    document.getElementById("auth-error").classList.remove("hidden");
+  }).catch(() => showAuthError("לא הצלחנו למצוא את האימייל הזה"));
+});
+
+function authErrorMessage(code) {
+  const map = {
+    "auth/user-not-found": "לא נמצא משתמש עם האימייל הזה",
+    "auth/wrong-password": "סיסמא שגויה",
+    "auth/email-already-in-use": "האימייל הזה כבר רשום — נסו להתחבר",
+    "auth/weak-password": "הסיסמא חלשה מדי — לפחות 6 תווים",
+    "auth/invalid-email": "כתובת אימייל לא תקינה",
+    "auth/invalid-credential": "אימייל או סיסמא שגויים"
+  };
+  return map[code] || "שגיאה — נסו שוב";
+}
 
 /* ============================================================
    5) Navigation
@@ -1130,7 +1233,12 @@ function renderSettingsView() {
   const emailEl = document.getElementById("settings-user-email");
   if (emailEl && user) emailEl.textContent = `מחוברים בתור: ${user.email} | ${p1()} ו${p2()}`;
 }
+function pinAcherLast(list) {
+  const without = list.filter(c => c !== "אחר");
+  return list.includes("אחר") ? [...without, "אחר"] : without;
+}
 function renderCategoryChips(container, list, field) {
+  list = pinAcherLast(list);
   container.innerHTML = list.map((cat) => `<span class="category-chip">${escapeHtml(cat)}<button data-cat="${escapeHtml(cat)}" aria-label="הסר">✕</button></span>`).join("");
   container.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1144,13 +1252,13 @@ document.getElementById("add-category-btn").addEventListener("click", () => {
   const input = document.getElementById("new-category-input");
   const val = input.value.trim();
   if (!val || config.categories.includes(val)) return;
-  configRef.set({ categories: [...config.categories, val] }, { merge: true }).then(() => { input.value = ""; });
+  configRef.set({ categories: pinAcherLast([...config.categories, val]) }, { merge: true }).then(() => { input.value = ""; });
 });
 document.getElementById("add-income-category-btn").addEventListener("click", () => {
   const input = document.getElementById("new-income-category-input");
   const val = input.value.trim();
   if (!val || config.incomeCategories.includes(val)) return;
-  configRef.set({ incomeCategories: [...config.incomeCategories, val] }, { merge: true }).then(() => { input.value = ""; });
+  configRef.set({ incomeCategories: pinAcherLast([...config.incomeCategories, val]) }, { merge: true }).then(() => { input.value = ""; });
 });
 document.getElementById("export-csv-btn").addEventListener("click", exportCSV);
 function csvField(val) {
@@ -1177,6 +1285,10 @@ function exportCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+document.getElementById("restart-tutorial-btn").addEventListener("click", () => {
+  if (configRef) configRef.set({ tutorialDone: false }, { merge: true }).then(() => startTutorial());
+  else startTutorial();
+});
 document.getElementById("logout-btn").addEventListener("click", () => {
   if (!confirm("לצאת מהחשבון?")) return;
   auth.signOut();
@@ -1513,7 +1625,7 @@ function renderMaaserView() {
   card.className = "maaser-hero " + (remaining > 0 ? "maaser-owes" : "maaser-clear");
   document.getElementById("maaser-owed-fig").textContent = remaining > 0 ? `${Math.round(remaining).toLocaleString()} ₪` : "✅ שולם!";
   document.getElementById("maaser-hero-sub").textContent =
-    remaining > 0 ? `נשאר לשלם ${Math.round(remaining).toLocaleString()}₪` : `✅ המעשרות שולמו במלואם!`;
+    remaining > 0 ? `נשאר לשלם מתוך חובה כוללת של ${Math.round(owed).toLocaleString()}₪` : `המעשרות שולמו במלואם — ${Math.round(owed).toLocaleString()}₪`;
   document.getElementById("maaser-total-income").textContent = `${Math.round(totalIncome).toLocaleString()}₪`;
   document.getElementById("maaser-owed-stat").textContent = `${Math.round(owed).toLocaleString()}₪`;
   document.getElementById("maaser-paid-total").textContent = `${Math.round(paid).toLocaleString()}₪`;
@@ -1615,7 +1727,7 @@ document.getElementById("toggle-self-employed").addEventListener("change", (e) =
 });
 
 
-/* ═══ Visual updates ═══ */
+/* ═══ Quotes ═══ */
 const QUOTES = [
   "מי שלא שולט בכספיו — כספיו שולטים בו",
   "לא מה שמרוויחים קובע — אלא מה ששומרים",
@@ -1624,44 +1736,58 @@ const QUOTES = [
   "הדרך לחופש כלכלי עוברת דרך מודעות יומיומית",
   "תקציב זה לא מגבלה — זו בחירה"
 ];
-let quoteIdx = 0, quoteTimer = null;
+let _quoteIdx = 0, _quoteTimer = null;
 function startQuotesRotation() {
   const el = document.getElementById("quotes-text");
   if (!el) return;
-  el.textContent = QUOTES[quoteIdx];
-  clearInterval(quoteTimer);
-  quoteTimer = setInterval(() => {
+  el.textContent = QUOTES[_quoteIdx];
+  clearInterval(_quoteTimer);
+  _quoteTimer = setInterval(() => {
     el.style.opacity = "0";
     setTimeout(() => {
-      quoteIdx = (quoteIdx + 1) % QUOTES.length;
-      el.textContent = QUOTES[quoteIdx];
+      _quoteIdx = (_quoteIdx + 1) % QUOTES.length;
+      el.textContent = QUOTES[_quoteIdx];
       el.style.opacity = "1";
     }, 400);
   }, 5000);
 }
 
+/* ═══ PWA banner ═══ */
+function showPwaBanner() {
+  const shown = localStorage.getItem("pwaBannerDismissed");
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (!shown && !standalone) {
+    setTimeout(() => { const b = document.getElementById("pwa-app-banner"); if (b) b.classList.remove("hidden"); }, 3000);
+  }
+}
+function dismissPwaBanner() {
+  const b = document.getElementById("pwa-app-banner");
+  if (b) b.classList.add("hidden");
+  localStorage.setItem("pwaBannerDismissed", "1");
+}
+
 /* ═══ Tutorial ═══ */
 const TUTORIAL_STEPS = [
-  { view: "dashboard", title: "לוח הבקרה 📊", desc: "כאן תראו את סיכום החודש — סך הוצאות, הכנסות, ומי שילם מה. הכל מתעדכן בזמן אמת." },
-  { view: "dashboard", title: "כפתור ➕", desc: "הכפתור הגדול בתחתית — לחצו כדי להוסיף הוצאה או הכנסה. פשוט ומהיר." },
-  { view: "expenses", title: "הוצאות 💸", desc: "כאן תמצאו את כל ההוצאות שלכם, עם אפשרות לחפש ולסנן לפי קטגוריה וחודש." },
-  { view: "income", title: "הכנסות 💰", desc: "כל ההכנסות שלכם — משכורות, בונוסים, העברות. מסודר לפי חודש." },
-  { view: "finances", title: "כספים וחסכונות 🏦", desc: "היתרה האמיתית בכל ארנק — עו\"ש, מזומן, חיסכון. ועוד: יעדי חיסכון לכל חלום." },
-  { view: "events", title: "תקציבי אירועים 🎯", desc: "טיול? שיפוץ? כל אירוע מקבל תקציב נפרד שלא מבלבל את ההוצאות השוטפות." },
-  { view: "recurring", title: "תנועות קבועות 🔁", desc: "שכירות, נטפליקס, חדר כושר — הוסיפו אחת וזה יתווסף אוטומטית כל חודש." },
-  { view: "debts", title: "חובות 🤝", desc: "מישהו חייב לכם? אתם חייבים למישהו? עקבו, שלמו, וסגרו חובות ממקום אחד." },
+  { view: "dashboard", title: "לוח הבקרה 📊", desc: "סיכום חודשי מלא — סך הוצאות, הכנסות, ומי שילם מה. הכל מתעדכן בזמן אמת." },
+  { view: "dashboard", title: "כפתור ➕", desc: "הכפתור הרחב בתחתית — הוספת הוצאה או הכנסה. פשוט ומהיר." },
+  { view: "expenses", title: "הוצאות 💸", desc: "כל ההוצאות שלכם, עם סינון לפי קטגוריה וחודש." },
+  { view: "income", title: "הכנסות 💰", desc: "כל ההכנסות — משכורות, בונוסים, העברות. מסודר לפי חודש." },
+  { view: "finances", title: "כספים וחסכונות 🏦", desc: "היתרה האמיתית בכל ארנק — עו׳׳ש, מזומן, חיסכון. עם יעדי חיסכון." },
+  { view: "events", title: "תקציבי אירועים 🎯", desc: "כל אירוע (טיול, שיפוץ וכו') מקבל תקציב נפרד שלא מבלבל את ההוצאות השוטפות." },
+  { view: "recurring", title: "תנועות קבועות 🔁", desc: "שכירות, נטפליקס וכד' — הוסיפו פעם אחת והמערכת מוסיפה כל חודש." },
+  { view: "debts", title: "חובות 🤝", desc: "מישהו חייב לכם? עקבו, שלמו, וסגרו חובות ממקום אחד." },
   { view: "reports", title: "דוחות וניתוח 📈", desc: "פילוח לפי קטגוריה, גרף חודשי, השוואה לחודש קודם — הכל אוטומטי." },
-  { view: "maaser", title: "מעשרות 🤲", desc: "האפליקציה מחשבת 10% מההכנסות ועוקבת אחרי מה שכבר שולם. אפשר לכבות בהגדרות." },
-  { view: "settings", title: "הגדרות ⚙️", desc: "ניהול קטגוריות, מדריך מחדש, יתרות — הכל כאן." }
+  { view: "maaser", title: "מעשרות 🤲", desc: "מחשב 10% מההכנסות ועוקב אחרי מה שכבר שולם. מופעל/כבוי בהגדרות." },
+  { view: "settings", title: "הגדרות ⚙️", desc: "קטגוריות, תמונת פרופיל, מדריך מחדש — הכל כאן." }
 ];
-let tutStep = 0;
+let _tutStep = 0;
 function startTutorial() {
-  tutStep = 0;
+  _tutStep = 0;
   document.getElementById("tutorial-overlay").classList.remove("hidden");
-  applyTutorialStep();
+  _applyTutStep();
 }
-function applyTutorialStep() {
-  const step = TUTORIAL_STEPS[tutStep];
+function _applyTutStep() {
+  const step = TUTORIAL_STEPS[_tutStep];
   if (step.view) {
     currentView = step.view;
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("hidden", v.dataset.view !== step.view));
@@ -1672,47 +1798,45 @@ function applyTutorialStep() {
   if (drawer) drawer.classList.add("hidden");
   document.getElementById("tutorial-title").textContent = step.title;
   document.getElementById("tutorial-desc").textContent = step.desc;
-  document.getElementById("tutorial-step-label").textContent = `שלב ${tutStep + 1} מתוך ${TUTORIAL_STEPS.length}`;
-  document.getElementById("tutorial-next").textContent = tutStep === TUTORIAL_STEPS.length - 1 ? "סיום ✓" : "הבא ›";
-  document.getElementById("tutorial-prev").style.opacity = tutStep === 0 ? "0" : "1";
-  document.getElementById("tutorial-prev").style.pointerEvents = tutStep === 0 ? "none" : "auto";
+  document.getElementById("tutorial-step-label").textContent = `שלב ${_tutStep+1} מתוך ${TUTORIAL_STEPS.length}`;
+  document.getElementById("tutorial-next").textContent = _tutStep === TUTORIAL_STEPS.length-1 ? "סיום ✓" : "הבא ›";
+  const prev = document.getElementById("tutorial-prev");
+  prev.style.opacity = _tutStep === 0 ? "0" : "1";
+  prev.style.pointerEvents = _tutStep === 0 ? "none" : "auto";
 }
-function nextTutorialStep() { if (tutStep === TUTORIAL_STEPS.length - 1) { endTutorial(); return; } tutStep++; applyTutorialStep(); }
-function prevTutorialStep() { if (tutStep > 0) { tutStep--; applyTutorialStep(); } }
+function nextTutorialStep() {
+  if (_tutStep === TUTORIAL_STEPS.length-1) { endTutorial(); return; }
+  _tutStep++; _applyTutStep();
+}
+function prevTutorialStep() { if (_tutStep > 0) { _tutStep--; _applyTutStep(); } }
 function endTutorial() {
   document.getElementById("tutorial-overlay").classList.add("hidden");
-  configRef.set({ tutorialDone: true }, { merge: true });
+  if (configRef) configRef.set({ tutorialDone: true }, { merge: true });
   currentView = "dashboard";
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("hidden", v.dataset.view !== "dashboard"));
   renderCurrentView();
 }
-document.getElementById("restart-tutorial-btn").addEventListener("click", () => {
-  configRef.set({ tutorialDone: false }, { merge: true }).then(() => startTutorial());
-});
 
 /* ═══ Profile picture ═══ */
 document.getElementById("profile-pic-btn").addEventListener("click", () => {
   document.getElementById("profile-pic-input").click();
 });
 document.getElementById("profile-pic-input").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     const canvas = document.createElement("canvas");
     const img = new window.Image();
     img.onload = () => {
-      const size = 200; canvas.width = size; canvas.height = size;
+      const sz = 200; canvas.width = sz; canvas.height = sz;
       const ctx = canvas.getContext("2d");
-      const scale = Math.max(size/img.width, size/img.height);
-      ctx.drawImage(img, (size-img.width*scale)/2, (size-img.height*scale)/2, img.width*scale, img.height*scale);
-      const compressed = canvas.toDataURL("image/jpeg", 0.7);
-      configRef.set({ profilePic: compressed }, { merge: true });
+      const sc = Math.max(sz/img.width, sz/img.height);
+      ctx.drawImage(img, (sz-img.width*sc)/2, (sz-img.height*sc)/2, img.width*sc, img.height*sc);
+      configRef.set({ profilePic: canvas.toDataURL("image/jpeg", 0.7) }, { merge: true });
     };
     img.src = ev.target.result;
   };
-  reader.readAsDataURL(file);
-  e.target.value = "";
+  reader.readAsDataURL(file); e.target.value = "";
 });
 document.getElementById("profile-pic-remove").addEventListener("click", () => {
   configRef.set({ profilePic: null }, { merge: true });
@@ -1720,39 +1844,26 @@ document.getElementById("profile-pic-remove").addEventListener("click", () => {
 function updateProfilePicDisplay() {
   const pic = config.profilePic;
   const img = document.getElementById("profile-pic-img");
-  const initial = document.getElementById("profile-pic-initial");
+  const init = document.getElementById("profile-pic-initial");
   const removeBtn = document.getElementById("profile-pic-remove");
   if (pic) {
-    img.src = pic; img.classList.remove("hidden"); initial.classList.add("hidden");
+    img.src = pic; img.classList.remove("hidden"); init.classList.add("hidden");
     if (removeBtn) removeBtn.classList.remove("hidden");
     const a1 = document.getElementById("avatar-p1");
     if (a1) { a1.style.backgroundImage = `url(${pic})`; a1.style.backgroundSize = "cover"; a1.textContent = ""; }
   } else {
-    img.classList.add("hidden"); initial.classList.remove("hidden");
-    initial.textContent = p1() ? p1()[0] : "י";
+    img.classList.add("hidden"); init.classList.remove("hidden");
+    init.textContent = p1() ? p1()[0] : "?";
     if (removeBtn) removeBtn.classList.add("hidden");
     const a1 = document.getElementById("avatar-p1");
-    if (a1) { a1.style.backgroundImage = ""; a1.textContent = p1() ? p1()[0] : "י"; }
+    if (a1) { a1.style.backgroundImage = ""; a1.textContent = p1() ? p1()[0] : "?"; }
   }
 }
 
-/* ═══ PWA banner ═══ */
-function showPwaBanner() {
-  const shown = localStorage.getItem("pwaBannerDismissed");
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-  if (!shown && !isStandalone) {
-    setTimeout(() => { const b = document.getElementById("pwa-app-banner"); if (b) b.classList.remove("hidden"); }, 3000);
-  }
-}
-function dismissPwaBanner() {
-  const b = document.getElementById("pwa-app-banner");
-  if (b) b.classList.add("hidden");
-  localStorage.setItem("pwaBannerDismissed", "1");
-}
-
+/* ═══ Init ═══ */
 /* ============================================================
    15) Init
    ============================================================ */
 // Startup is driven by auth.onAuthStateChanged above.
 // Hide app until auth confirmed.
-
+document.getElementById("app").classList.add("app-hidden");
