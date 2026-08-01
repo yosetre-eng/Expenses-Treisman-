@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>הקופה המשותפת | יוסף ואגם</title>
+<title>הקופה המשותפת</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,27 +12,88 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
+<!-- Auth overlay — shown until user logs in -->
+<div id="auth-overlay" class="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="icon-180.png" class="auth-logo" alt="">
+      <h1 class="auth-title">הקופה המשותפת</h1>
+      <p class="auth-tagline">ניהול כספים לזוגות</p>
+    </div>
+    <div class="tab-switch auth-tabs">
+      <button class="tab-btn active" data-auth-tab="login">כניסה</button>
+      <button class="tab-btn" data-auth-tab="register">הרשמה</button>
+    </div>
+
+    <form id="login-form">
+      <label class="field">
+        <span>אימייל</span>
+        <input type="email" id="login-email" required autocomplete="email" placeholder="האימייל שלכם">
+      </label>
+      <label class="field">
+        <span>סיסמא</span>
+        <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••">
+      </label>
+      <button type="submit" class="submit-btn">כניסה</button>
+      <button type="button" id="forgot-password-btn" class="link-btn auth-forgot">שכחתי סיסמא</button>
+    </form>
+
+    <form id="register-form" class="hidden">
+      <label class="field">
+        <span>שם בן/בת הזוג הראשון/ה 👤</span>
+        <input type="text" id="reg-partner1" required placeholder="לדוגמה: יוסף, דוד, אברהם">
+      </label>
+      <label class="field">
+        <span>שם בן/בת הזוג השני/ה 👩</span>
+        <input type="text" id="reg-partner2" required placeholder="לדוגמה: אגם, שרה, מרים">
+      </label>
+      <label class="field">
+        <span>אימייל</span>
+        <input type="email" id="reg-email" required autocomplete="email" placeholder="האימייל שלכם">
+      </label>
+      <label class="field">
+        <span>סיסמא (לפחות 6 תווים)</span>
+        <input type="password" id="reg-password" required minlength="6" autocomplete="new-password" placeholder="••••••">
+      </label>
+      <button type="submit" class="submit-btn">יצירת הקופה שלנו 🎉</button>
+    </form>
+
+    <p id="auth-error" class="auth-error hidden"></p>
+    <p id="auth-loading" class="auth-loading hidden">טוען...</p>
+  </div>
+</div>
+
 <div id="app">
+  <!-- PWA banner -->
+  <div id="pwa-app-banner" class="pwa-app-banner hidden">
+    <span>📲 הוסיפו למסך הבית לחוויה מיטבית</span>
+    <button onclick="document.getElementById('pwa-modal-overlay').classList.remove('hidden')" class="pwa-app-banner-btn">איך?</button>
+    <button onclick="dismissPwaBanner()" class="pwa-app-banner-close">✕</button>
+  </div>
 
   <!-- Top bar -->
   <header class="topbar">
     <button id="open-menu" class="hamburger" aria-label="תפריט">☰</button>
     <div class="brand">
       <span class="brand-title">הקופה המשותפת</span>
-      <span class="brand-sub">יוסף ואגם</span>
+      <span class="brand-sub" id="brand-sub">טוען...</span>
     </div>
     <div class="avatars">
-      <div class="avatar avatar-yosef">י</div>
-      <div class="avatar avatar-agam">א</div>
+      <div class="avatar avatar-yosef" id="avatar-p1">?</div>
+      <div class="avatar avatar-agam" id="avatar-p2">?</div>
     </div>
   </header>
 
   <!-- ============== DASHBOARD VIEW ============== -->
   <section class="view" data-view="dashboard">
+    <div class="quotes-banner" id="quotes-banner">
+      <span class="quotes-icon">💡</span>
+      <span id="quotes-text" class="quotes-text"></span>
+    </div>
 
     <div class="month-bar">
       <button id="prev-month" class="month-arrow" aria-label="חודש קודם">‹</button>
@@ -48,7 +109,7 @@
 
     <div class="hero-card">
       <div class="hero-top">
-        <span class="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
+        <span class="hero-eyebrow" id="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
         <span class="hero-badge" id="hero-badge">פעיל</span>
       </div>
       <div class="hero-figure" id="hero-figure">0 ₪</div>
@@ -65,11 +126,11 @@
         <span class="stat-value" id="stat-income">0₪</span>
       </div>
       <div class="stat-card tint-teal">
-        <span class="stat-label">שילם יוסף</span>
+        <span class="stat-label" id="stat-label-p1">בן/בת זוג 1</span>
         <span class="stat-value" id="stat-yosef">0₪</span>
       </div>
       <div class="stat-card tint-rose">
-        <span class="stat-label">שילמה אגם</span>
+        <span class="stat-label" id="stat-label-p2">בן/בת זוג 2</span>
         <span class="stat-value" id="stat-agam">0₪</span>
       </div>
     </div>
@@ -171,7 +232,7 @@
         <span class="hero-eyebrow">כל הכסף שלנו, ביחד</span>
       </div>
       <div class="hero-figure" id="grand-total-figure">0 ₪</div>
-      <div class="hero-sub">יוסף + אגם + מזומן + חיסכון, הכל ביחד</div>
+      <div class="hero-sub" id="finances-hero-sub">יוסף + אגם + מזומן + חיסכון, הכל ביחד</div>
     </div>
 
     <div class="panel">
@@ -370,6 +431,26 @@
       <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות, שאפשר לפתוח או לייבא ישירות ל-Google Sheets.</p>
       <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
     </div>
+    <div class="panel">
+      <div class="panel-head"><h2>תמונת פרופיל</h2></div>
+      <div class="profile-pic-section">
+        <div id="profile-pic-display" class="profile-pic-display">
+          <span id="profile-pic-initial">י</span>
+          <img id="profile-pic-img" class="hidden" alt="תמונת פרופיל">
+        </div>
+        <div>
+          <input type="file" id="profile-pic-input" accept="image/*" class="hidden">
+          <button id="profile-pic-btn" class="mini-btn" style="display:block;margin-bottom:6px;">📷 בחר תמונה</button>
+          <button id="profile-pic-remove" class="link-btn hidden">הסר תמונה</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>החשבון שלנו</h2></div>
+      <p class="panel-desc" id="settings-user-email"></p>
+      <button id="restart-tutorial-btn" class="submit-btn" style="background:var(--purple-tint);color:var(--purple);margin-bottom:8px;">🎓 הפעל מדריך מחדש</button>
+      <button id="logout-btn" class="submit-btn logout-btn">יציאה מהחשבון</button>
+    </div>
     <div class="panel danger-panel">
       <div class="panel-head"><h2>אזור מסוכן</h2></div>
       <p class="panel-desc">מחיקת כל ההוצאות וההכנסות לצמיתות - אין דרך לבטל.</p>
@@ -434,7 +515,7 @@
 </div>
 
 <!-- Floating add button -->
-<button id="open-add" class="fab" aria-label="הוסף">+</button>
+<button id="open-add" class="fab" aria-label="הוסף">➕ הוספת הוצאה / הכנסה</button>
 
 <!-- Add recurring expense/income modal -->
 <div id="recurring-modal-overlay" class="modal-overlay hidden">
@@ -472,12 +553,12 @@
         <span id="recurring-account-label">ממי זה יוצא?</span>
         <div class="who-pay">
           <label class="who-option">
-            <input type="radio" name="recurringAccount" value="יוסף" checked>
-            <span>יוסף</span>
+            <input type="radio" name="recurringAccount" value="יוסף" data-partner="1" checked>
+            <span data-partner-label="1">יוסף</span>
           </label>
           <label class="who-option">
-            <input type="radio" name="recurringAccount" value="אגם">
-            <span>אגם</span>
+            <input type="radio" name="recurringAccount" value="אגם" data-partner="2">
+            <span data-partner-label="2">אגם</span>
           </label>
           <label class="who-option who-option-cash">
             <input type="radio" name="recurringAccount" value="מזומן">
@@ -513,8 +594,8 @@
       <div class="field">
         <span>מאיזה ארנק?</span>
         <div class="who-pay">
-          <label class="who-option"><input type="radio" name="maaserAccount" value="יוסף" checked><span>יוסף</span></label>
-          <label class="who-option"><input type="radio" name="maaserAccount" value="אגם"><span>אגם</span></label>
+          <label class="who-option"><input type="radio" name="maaserAccount" value="יוסף" data-partner="1" checked><span data-partner-label="1">יוסף</span></label>
+          <label class="who-option"><input type="radio" name="maaserAccount" value="אגם" data-partner="2"><span data-partner-label="2">אגם</span></label>
           <label class="who-option who-option-cash"><input type="radio" name="maaserAccount" value="מזומן"><span>מזומן 💵</span></label>
         </div>
       </div>
@@ -584,10 +665,10 @@
         <span>מי שילם?</span>
         <div class="who-pay">
           <label class="who-option">
-            <input type="radio" name="eventExpenseAccount" value="יוסף" checked><span>יוסף</span>
+            <input type="radio" name="eventExpenseAccount" value="יוסף" data-partner="1" checked><span data-partner-label="1">יוסף</span>
           </label>
           <label class="who-option">
-            <input type="radio" name="eventExpenseAccount" value="אגם"><span>אגם</span>
+            <input type="radio" name="eventExpenseAccount" value="אגם" data-partner="2"><span data-partner-label="2">אגם</span>
           </label>
           <label class="who-option who-option-cash">
             <input type="radio" name="eventExpenseAccount" value="מזומן"><span>מזומן 💵</span>
@@ -599,6 +680,22 @@
       </div>
       <button type="submit" class="submit-btn">הוספת הוצאה</button>
     </form>
+  </div>
+</div>
+
+<!-- Tutorial overlay -->
+<div id="tutorial-overlay" class="tutorial-overlay hidden">
+  <div id="tutorial-bubble" class="tutorial-bubble">
+    <div class="tutorial-header">
+      <span id="tutorial-step-label" class="tutorial-step-label">שלב 1 מתוך 12</span>
+      <button class="tutorial-end-btn" onclick="endTutorial()">✕ סיים</button>
+    </div>
+    <h3 id="tutorial-title"></h3>
+    <p id="tutorial-desc"></p>
+    <div class="tutorial-nav">
+      <button id="tutorial-prev" class="mini-btn" onclick="prevTutorialStep()" style="opacity:0;">‹ הקודם</button>
+      <button id="tutorial-next" class="submit-btn" style="flex:1;margin-inline-start:8px;" onclick="nextTutorialStep()">הבא ›</button>
+    </div>
   </div>
 </div>
 
@@ -614,12 +711,12 @@
       <span>לאיזה ארנק שייך הדוח?</span>
       <div class="who-pay">
         <label class="who-option">
-          <input type="radio" name="importAccount" value="יוסף" checked>
-          <span>יוסף</span>
+          <input type="radio" name="importAccount" value="יוסף" data-partner="1" checked>
+          <span data-partner-label="1">יוסף</span>
         </label>
         <label class="who-option">
-          <input type="radio" name="importAccount" value="אגם">
-          <span>אגם</span>
+          <input type="radio" name="importAccount" value="אגם" data-partner="2">
+          <span data-partner-label="2">אגם</span>
         </label>
         <label class="who-option who-option-cash">
           <input type="radio" name="importAccount" value="מזומן">
@@ -706,12 +803,12 @@
         <span id="account-label">מי שילם?</span>
         <div class="who-pay">
           <label class="who-option">
-            <input type="radio" name="payAccount" value="יוסף" checked>
-            <span>יוסף</span>
+            <input type="radio" name="payAccount" value="יוסף" data-partner="1" checked>
+            <span data-partner-label="1">יוסף</span>
           </label>
           <label class="who-option">
-            <input type="radio" name="payAccount" value="אגם">
-            <span>אגם</span>
+            <input type="radio" name="payAccount" value="אגם" data-partner="2">
+            <span data-partner-label="2">אגם</span>
           </label>
           <label class="who-option who-option-cash">
             <input type="radio" name="payAccount" value="מזומן">
@@ -795,6 +892,7 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=12"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
