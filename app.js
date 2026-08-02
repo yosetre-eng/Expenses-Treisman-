@@ -108,6 +108,10 @@ configRef.onSnapshot((doc) => {
     maaserEnabled: data.maaserEnabled !== undefined ? data.maaserEnabled : true,
     selfEmployed: data.selfEmployed || "none"
   };
+  // Force-enable maaser for personal app if it was off
+  if (data.maaserEnabled === false) {
+    configRef.set({ maaserEnabled: true }, { merge: true });
+  }
   updateProfilePicDisplay();
   populateCategorySelects();
   applyMaaserSettings();
@@ -281,6 +285,34 @@ function renderRows(container, list, type, opts = {}) {
       if (confirm(isIncome ? "למחוק את ההכנסה?" : "למחוק את ההוצאה?")) {
         (isIncome ? incomeRef : expensesRef).doc(btn.dataset.id).delete();
       }
+    });
+  });
+  container.querySelectorAll(".row-edit").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.type;
+      const id   = btn.dataset.id;
+      const list = type === "income" ? allIncome : allExpenses;
+      const item = list.find(e => e.id === id);
+      if (!item) return;
+      currentEditId   = id;
+      currentEditType = type;
+      modalType = type;
+      // Switch modal tab
+      document.querySelectorAll("[data-modal]").forEach(b => b.classList.toggle("active", b.dataset.modal === type));
+      // Fill fields
+      document.getElementById("amount").value = item.amount;
+      document.getElementById("description").value = item.description || "";
+      populateCategorySelects();
+      const catSel = document.getElementById("category");
+      if (catSel) catSel.value = item.category || "";
+      const acct = type === "income" ? item.account : item.paidBy;
+      document.querySelectorAll('input[name="payAccount"]').forEach(r => { r.checked = r.value === acct; });
+      // Update modal title and button
+      const titleEl = document.getElementById("modal-title");
+      const submitEl = document.getElementById("submit-btn");
+      if (titleEl) titleEl.textContent = type === "income" ? "עריכת הכנסה ✏️" : "עריכת הוצאה ✏️";
+      if (submitEl) submitEl.textContent = "שמור שינויים";
+      overlay.classList.remove("hidden");
     });
   });
 }
