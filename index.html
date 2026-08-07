@@ -370,13 +370,16 @@
       <div class="setting-row">
         <div class="setting-row-info">
           <span class="setting-row-title">חשבון משותף 🤝</span>
-          <span class="setting-row-sub">מוסיף "חשבון משותף" כאפשרות בהוצאות ובהכנסות</span>
+          <span class="setting-row-sub">מוסיף "חשבון משותף" בהוצאות, הכנסות ומסך העברות</span>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-joint-account">
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="setting-row">
+        <div class="setting-row-info">
+          <span class="setting-row-title">מוציאים מעשרות</span>
           <span class="setting-row-sub">הצג מסך מעשרות וחשב חובת תרומה (10% מהכנסות)</span>
         </div>
         <label class="toggle-switch">
@@ -397,6 +400,22 @@
         </select>
       </div>
     </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>תמונת פרופיל</h2></div>
+      <div class="profile-pic-section">
+        <div id="profile-pic-display" class="profile-pic-display">
+          <span id="profile-pic-initial">י</span>
+          <img id="profile-pic-img" class="hidden" alt="">
+        </div>
+        <div>
+          <input type="file" id="profile-pic-input" accept="image/*" class="hidden">
+          <button id="profile-pic-btn" class="mini-btn" style="display:block;margin-bottom:6px;">📷 בחר תמונה</button>
+          <button id="profile-pic-remove" class="link-btn hidden">הסר תמונה</button>
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h2>קטגוריות הוצאה</h2></div>
       <div id="category-manage-list" class="category-manage-list"></div>
@@ -413,17 +432,25 @@
         <button id="add-income-category-btn" class="mini-btn">הוסף</button>
       </div>
     </div>
+
     <div class="panel">
       <div class="panel-head"><h2>ייבוא מהבנק</h2></div>
-      <p class="panel-desc">מעלים קובץ CSV של דוח תנועות מהבנק, והמערכת תנחש קטגוריה לכל תנועה ותיתן לבחור מה בדיוק לייבא לפני שמירה.</p>
+      <p class="panel-desc">מעלים קובץ CSV של דוח תנועות מהבנק, והמערכת תנחש קטגוריה לכל תנועה.</p>
       <input type="file" id="bank-csv-input" accept=".csv,text/csv" class="hidden">
       <button id="open-bank-import" class="submit-btn">בחירת קובץ CSV</button>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>ייצוא נתונים</h2></div>
-      <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות, שאפשר לפתוח או לייבא ישירות ל-Google Sheets.</p>
+      <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות.</p>
       <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
     </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>החשבון שלנו</h2></div>
+      <button id="restart-tutorial-btn" class="submit-btn" style="background:var(--purple-tint);color:var(--purple);margin-bottom:8px;">🎓 הפעל מדריך מחדש</button>
+      <button id="logout-btn" class="submit-btn logout-btn">יציאה מהחשבון</button>
+    </div>
+
     <div class="panel danger-panel">
       <div class="panel-head"><h2>אזור מסוכן</h2></div>
       <p class="panel-desc">מחיקת כל ההוצאות וההכנסות לצמיתות - אין דרך לבטל.</p>
@@ -866,10 +893,12 @@
     </div>
   </nav>
 </div>
+</div>
+</div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
