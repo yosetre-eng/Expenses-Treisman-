@@ -12,6 +12,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const transfersRef = db.collection("transfers");
 const expensesRef = db.collection("expenses");
 const incomeRef = db.collection("income");
 const debtsRef = db.collection("debts");
@@ -43,8 +44,10 @@ let currentEditType = null; // 'expense' | 'income'
 
 const DEFAULT_CATEGORIES = ["אוכל", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
-const ACCOUNTS = ["יוסף", "אגם", "מזומן"];
-const BALANCE_ACCOUNTS = ["יוסף", "אגם", "מזומן", "חיסכון"];
+let ACCOUNTS = ["יוסף", "אגם", "מזומן"];
+let BALANCE_ACCOUNTS = ["יוסף", "אגם", "מזומן", "חיסכון"];
+const JOINT = "חשבון משותף";
+let allTransfers = [];
 const PALETTE = ["#2F8F86", "#D6577A", "#2F5FD6", "#C2570E", "#7C5CE0", "#B8860B", "#34A853", "#EC4899", "#0EA5E9", "#F97316", "#9333EA", "#059669"];
 
 let config = {
@@ -92,6 +95,11 @@ eventsRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
   renderCurrentView();
 }, (err) => console.error("Firestore error (events):", err));
 
+transfersRef.orderBy("date", "desc").onSnapshot((snap) => {
+  allTransfers = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  renderCurrentView();
+}, err => console.error("transfers:", err));
+
 configRef.onSnapshot((doc) => {
   if (!doc.exists) {
     configRef.set(config);
@@ -106,12 +114,15 @@ configRef.onSnapshot((doc) => {
     savingsGoals: data.savingsGoals || [],
     profilePic: data.profilePic || null,
     maaserEnabled: data.maaserEnabled !== undefined ? data.maaserEnabled : true,
+    hasJointAccount: data.hasJointAccount || false,
     selfEmployed: data.selfEmployed || "none"
   };
   // Force-enable maaser for personal app if it was off
   if (data.maaserEnabled === false) {
     configRef.set({ maaserEnabled: true }, { merge: true });
   }
+  // Apply joint account visibility
+  applyJointAccountSettings();
   updateProfilePicDisplay();
   populateCategorySelects();
   applyMaaserSettings();
@@ -155,6 +166,7 @@ function renderCurrentView() {
   else if (currentView === "reports") renderReportsView();
   else if (currentView === "events") renderEventsView();
   else if (currentView === "maaser") renderMaaserView();
+  else if (currentView === "transfers") renderTransfersView();
   else if (currentView === "debts") renderDebtsView();
   else if (currentView === "recurring") renderRecurringView();
   else if (currentView === "settings") renderSettingsView();
@@ -204,7 +216,9 @@ function computeAccountBalance(account) {
   const opening = (config.accountBalances && config.accountBalances[account]) || 0;
   const inc = sumBy(allIncome, (i) => i.account === account);
   const exp = sumBy(allExpenses, (e) => e.paidBy === account);
-  return opening + inc - exp;
+  const transfersIn  = sumBy(allTransfers, (t) => t.to === account);
+  const transfersOut = sumBy(allTransfers, (t) => t.from === account);
+  return opening + inc - exp + transfersIn - transfersOut;
 }
 function computeTotalBalance() {
   return ACCOUNTS.reduce((s, a) => s + computeAccountBalance(a), 0);
@@ -1630,6 +1644,85 @@ document.getElementById("self-employed-select").addEventListener("change", (e) =
 /* ============================================================
    15) Init
    ============================================================ */
+
+
+/* ═══ Joint account settings ═══ */
+function applyJointAccountSettings() {
+  const enabled = config.hasJointAccount;
+  // Update ACCOUNTS arrays
+  const baseAccounts = ["יוסף", "אגם", "מזומן"];
+  const baseBalance  = ["יוסף", "אגם", "מזומן", "חיסכון"];
+  ACCOUNTS       = enabled ? [...baseAccounts.slice(0,2), JOINT, ...baseAccounts.slice(2)] : baseAccounts;
+  BALANCE_ACCOUNTS = enabled ? [...baseBalance.slice(0,2), JOINT, ...baseBalance.slice(2)] : baseBalance;
+  // Show/hide joint option in main modal
+  const opt = document.getElementById("joint-account-option-main");
+  if (opt) opt.classList.toggle("hidden", !enabled);
+  // Show/hide transfers drawer
+  const td = document.getElementById("transfers-drawer-item");
+  if (td) td.classList.toggle("hidden", !enabled);
+  // Sync toggle
+  const tog = document.getElementById("toggle-joint-account");
+  if (tog && tog.checked !== enabled) tog.checked = enabled;
+  // Repopulate transfer selects
+  const fromEl = document.getElementById("transfer-from");
+  const toEl   = document.getElementById("transfer-to");
+  if (fromEl && toEl) {
+    const opts = BALANCE_ACCOUNTS.map(a => `<option value="${a}">${a}</option>`).join("");
+    fromEl.innerHTML = opts;
+    toEl.innerHTML   = opts;
+    if (toEl.options.length > 1) toEl.selectedIndex = 1;
+  }
+}
+
+/* ═══ Transfers view ═══ */
+function renderTransfersView() {
+  const fromEl = document.getElementById("transfer-from");
+  const toEl   = document.getElementById("transfer-to");
+  if (fromEl && fromEl.options.length === 0) applyJointAccountSettings();
+  const listEl = document.getElementById("transfers-list");
+  if (!listEl) return;
+  if (allTransfers.length === 0) {
+    listEl.innerHTML = `<p class="empty-hint">עדיין אין העברות</p>`;
+    return;
+  }
+  listEl.innerHTML = allTransfers.map(t => {
+    const date = toDate(t.date).toLocaleDateString("he-IL", {day:"numeric",month:"short"});
+    return `<div class="expense-row">
+      <span class="row-dot" style="background:var(--purple)"></span>
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
+        <div class="row-meta">${date}${t.note ? " · " + escapeHtml(t.note) : ""}</div>
+      </div>
+      <span class="row-amount">${Math.round(t.amount).toLocaleString()}₪</span>
+      <button class="row-delete" data-tid="${t.id}" aria-label="מחק">✕</button>
+    </div>`;
+  }).join("");
+  listEl.querySelectorAll(".row-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (confirm("למחוק העברה זו?")) transfersRef.doc(btn.dataset.tid).delete();
+    });
+  });
+}
+
+document.getElementById("transfer-submit-btn").addEventListener("click", () => {
+  const from   = document.getElementById("transfer-from").value;
+  const to     = document.getElementById("transfer-to").value;
+  const amount = parseFloat(document.getElementById("transfer-amount").value);
+  const note   = document.getElementById("transfer-note").value.trim();
+  if (!from || !to || from === to || !amount || amount <= 0) {
+    alert("נא לבחור חשבון שונה עבור מוצא ויעד, ולהזין סכום"); return;
+  }
+  transfersRef.add({ from, to, amount, note, date: firebase.firestore.Timestamp.now() }).then(() => {
+    document.getElementById("transfer-amount").value = "";
+    document.getElementById("transfer-note").value = "";
+    showToast(`✅ הועבר ${amount.toLocaleString()}₪ מ${from} ל${to}`);
+  });
+});
+
+/* ═══ Settings toggle handlers ═══ */
+document.getElementById("toggle-joint-account").addEventListener("change", (e) => {
+  configRef.set({ hasJointAccount: e.target.checked }, { merge: true });
+});
 
 /* ═══ Quotes ═══ */
 const QUOTES = ["מי שלא שולט בכספיו — כספיו שולטים בו","לא מה שמרוויחים קובע — אלא מה ששומרים","כל שקל שאתם מכירים — שקל שעובד בשבילכם","שליטה בכסף מתחילה בהכרת המספרים","הדרך לחופש כלכלי עוברת דרך מודעות יומיומית","תקציב זה לא מגבלה — זו בחירה"];

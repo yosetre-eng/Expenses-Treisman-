@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -332,13 +332,51 @@
     </div>
   </section>
 
+  <!-- ============== TRANSFERS VIEW ============== -->
+  <section class="view hidden" data-view="transfers">
+    <div class="panel">
+      <div class="panel-head"><h2>העברות בין חשבונות 🔄</h2></div>
+      <p class="panel-desc">העברה מחשבון לחשבון לא נחשבת הוצאה — רק זזה בין הארנקים שלכם.</p>
+    </div>
+    <div class="panel">
+      <div class="field">
+        <span>מחשבון</span>
+        <select id="transfer-from" class="setting-select" style="width:100%;"></select>
+      </div>
+      <div class="field">
+        <span>לחשבון</span>
+        <select id="transfer-to" class="setting-select" style="width:100%;"></select>
+      </div>
+      <label class="field">
+        <span>סכום (₪)</span>
+        <input type="number" id="transfer-amount" inputmode="decimal" min="0" step="1" placeholder="0">
+      </label>
+      <label class="field">
+        <span>הערה (אופציונלי)</span>
+        <input type="text" id="transfer-note" placeholder="לדוגמה: לכיסוי הוצאות משותפות">
+      </label>
+      <button id="transfer-submit-btn" class="submit-btn">העבר ›</button>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>היסטוריית העברות</h2></div>
+      <div id="transfers-list" class="expense-list"><p class="empty-hint">עדיין אין העברות</p></div>
+    </div>
+  </section>
+
   <!-- ============== SETTINGS VIEW ============== -->
   <section class="view hidden" data-view="settings">
     <div class="panel">
       <div class="panel-head"><h2>הגדרות כלליות</h2></div>
       <div class="setting-row">
         <div class="setting-row-info">
-          <span class="setting-row-title">מוציאים מעשרות</span>
+          <span class="setting-row-title">חשבון משותף 🤝</span>
+          <span class="setting-row-sub">מוסיף "חשבון משותף" כאפשרות בהוצאות ובהכנסות</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-joint-account">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
           <span class="setting-row-sub">הצג מסך מעשרות וחשב חובת תרומה (10% מהכנסות)</span>
         </div>
         <label class="toggle-switch">
@@ -753,9 +791,10 @@
             <input type="radio" name="payAccount" value="חיסכון">
             <span>חיסכון 💰</span>
           </label>
-        </div>
-      </div>
-      <button type="submit" class="submit-btn" id="submit-btn">הוסף</button>
+          <label class="who-option hidden" id="joint-account-option-main">
+            <input type="radio" name="payAccount" value="חשבון משותף">
+            <span>משותף 🤝</span>
+          </label>
     </form>
   </div>
 </div>
@@ -804,9 +843,13 @@
         <span class="drawer-icon">🎯</span>
         <span class="drawer-item-text"><span class="drawer-item-title">תקציבי אירועים</span><span class="drawer-item-sub">טיולים ואירועים מיוחדים</span></span>
       </button>
-      <button class="drawer-item hidden" id="maaser-drawer-item" data-view="maaser">
+      <button class="drawer-item" id="maaser-drawer-item" data-view="maaser">
         <span class="drawer-icon">🤲</span>
         <span class="drawer-item-text"><span class="drawer-item-title">מעשרות</span><span class="drawer-item-sub">חישוב ותשלום לצדקה</span></span>
+      </button>
+      <button class="drawer-item hidden" id="transfers-drawer-item" data-view="transfers">
+        <span class="drawer-icon">🔄</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">העברות בין חשבונות</span><span class="drawer-item-sub">העבירו כסף בין הארנקים</span></span>
       </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
@@ -827,6 +870,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>
