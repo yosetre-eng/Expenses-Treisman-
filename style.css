@@ -518,36 +518,21 @@ body::after{
   .modal,.drawer{animation:none;}
 }
 
-/* ── Quotes ── */
 .quotes-banner{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(31,138,125,.07),rgba(142,91,168,.07));border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--muted);font-style:italic;border:1px solid var(--border);min-height:42px;}
 .quotes-icon{font-size:15px;flex-shrink:0;}
 .quotes-text{transition:opacity .4s ease;flex:1;line-height:1.5;}
-/* ── Tutorial ── */
-.tutorial-overlay{position:fixed;inset:0;z-index:480;pointer-events:none;}
-.tutorial-overlay.hidden{display:none;}
-.tutorial-bubble{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:20px 20px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(20,10,50,.18);z-index:483;pointer-events:auto;border-top:3px solid var(--yosef);}
-.tutorial-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.tutorial-step-label{font-size:11.5px;color:var(--yosef);font-weight:700;}
-.tutorial-end-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;}
-.tutorial-bubble h3{font-size:16px;font-weight:800;margin-bottom:4px;}
-.tutorial-bubble p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
-.tutorial-nav{display:flex;align-items:center;gap:8px;}
-/* ── Profile pic ── */
-.profile-pic-section{display:flex;align-items:center;gap:16px;padding:6px 0;}
-.profile-pic-display{width:72px;height:72px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 4px 12px rgba(70,40,60,.2);}
-#profile-pic-initial{color:#fff;font-size:28px;font-weight:800;font-family:var(--font-display);}
-#profile-pic-img{width:100%;height:100%;object-fit:cover;}
-/* ── PWA banner ── */
 .pwa-app-banner{background:var(--gradient);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
 .pwa-app-banner.hidden{display:none;}
 .pwa-app-banner-btn{background:rgba(255,255,255,.25);border:none;border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-inline-start:auto;}
 .pwa-app-banner-close{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;}
-
-/* ── Edit button ── */
-.row-edit{background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px;opacity:.6;flex-shrink:0;}
-.row-edit:hover{opacity:1;}
-
-/* ── Partner filter in reports ── */
-.report-partner-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-.partner-filter-btn{flex:1;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-weight:700;font-size:12.5px;padding:7px 4px;border-radius:999px;cursor:pointer;font-family:inherit;}
+.report-partner-row{display:flex;gap:8px;margin-top:10px;}
+.partner-filter-btn{flex:1;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-weight:700;font-size:12.5px;padding:7px;border-radius:999px;cursor:pointer;font-family:inherit;}
 .partner-filter-btn.active{background:var(--gradient);border-color:transparent;color:#fff;}
+.row-edit{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 5px;opacity:.6;flex-shrink:0;}
+.profile-pic-section{display:flex;align-items:center;gap:16px;padding:6px 0;}
+.profile-pic-display{width:72px;height:72px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;box-shadow:0 4px 12px rgba(70,40,60,.2);}
+#profile-pic-initial{color:#fff;font-size:28px;font-weight:800;font-family:var(--font-display);}
+#profile-pic-img{width:100%;height:100%;object-fit:cover;}
+.tutorial-overlay{position:fixed;inset:0;z-index:480;pointer-events:none;}
+.tutorial-overlay.hidden{display:none;}
+.tutorial-bubble{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-radius:20px 20px 0 0;padding:16px 20px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(20,10,50,.18);z-index:483;pointer-events:auto;border-top:3px solid var(--yosef);}

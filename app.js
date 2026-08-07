@@ -37,17 +37,16 @@ let modalType = "expense";
 let reportType = "expenses";
 let reportPeriod = "month";
 let reportPartnerFilter = "all";
+let currentEditId = null, currentEditType = null;
+let allTransfers = [];
+const JOINT = "חשבון משותף";
+let ACCOUNTS = ["יוסף","אגם","מזומן"];
+let BALANCE_ACCOUNTS = ["יוסף","אגם","מזומן","חיסכון"];
 let recurringModalType = "expense";
 let currentEventId = null;
-let currentEditId = null;
-let currentEditType = null; // 'expense' | 'income'
 
 const DEFAULT_CATEGORIES = ["אוכל", "דיור", "תחבורה", "בילויים", "בריאות", "אחר"];
 const DEFAULT_INCOME_CATEGORIES = ["משכורת", "בונוס", "מתנה", "החזר כספי", "אחר"];
-let ACCOUNTS = ["יוסף", "אגם", "מזומן"];
-let BALANCE_ACCOUNTS = ["יוסף", "אגם", "מזומן", "חיסכון"];
-const JOINT = "חשבון משותף";
-let allTransfers = [];
 const PALETTE = ["#2F8F86", "#D6577A", "#2F5FD6", "#C2570E", "#7C5CE0", "#B8860B", "#34A853", "#EC4899", "#0EA5E9", "#F97316", "#9333EA", "#059669"];
 
 let config = {
@@ -95,10 +94,7 @@ eventsRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
   renderCurrentView();
 }, (err) => console.error("Firestore error (events):", err));
 
-transfersRef.orderBy("date", "desc").onSnapshot((snap) => {
-  allTransfers = snap.docs.map(d => ({id: d.id, ...d.data()}));
-  renderCurrentView();
-}, err => console.error("transfers:", err));
+transfersRef.orderBy("date","desc").onSnapshot(snap=>{allTransfers=snap.docs.map(d=>({id:d.id,...d.data()}));renderCurrentView();},()=>{});
 
 configRef.onSnapshot((doc) => {
   if (!doc.exists) {
@@ -112,25 +108,16 @@ configRef.onSnapshot((doc) => {
     budgets: data.budgets || {},
     accountBalances: data.accountBalances || { "יוסף": 0, "אגם": 0, "מזומן": 0 },
     savingsGoals: data.savingsGoals || [],
+    hasJointAccount: data.hasJointAccount || false,
     profilePic: data.profilePic || null,
     maaserEnabled: data.maaserEnabled !== undefined ? data.maaserEnabled : true,
-    hasJointAccount: data.hasJointAccount || false,
     selfEmployed: data.selfEmployed || "none"
   };
-  // Force-enable maaser for personal app if it was off
-  if (data.maaserEnabled === false) {
-    configRef.set({ maaserEnabled: true }, { merge: true });
-  }
-  // Apply joint account visibility
+  if (data.maaserEnabled === false) configRef.set({maaserEnabled:true},{merge:true});
   applyJointAccountSettings();
   updateProfilePicDisplay();
   populateCategorySelects();
   applyMaaserSettings();
-  // Update partner filter labels
-  const pfp1 = document.getElementById("partner-filter-p1");
-  const pfp2 = document.getElementById("partner-filter-p2");
-  if (pfp1) pfp1.textContent = p1();
-  if (pfp2) pfp2.textContent = p2();
   renderCurrentView();
 });
 
@@ -216,9 +203,9 @@ function computeAccountBalance(account) {
   const opening = (config.accountBalances && config.accountBalances[account]) || 0;
   const inc = sumBy(allIncome, (i) => i.account === account);
   const exp = sumBy(allExpenses, (e) => e.paidBy === account);
-  const transfersIn  = sumBy(allTransfers, (t) => t.to === account);
-  const transfersOut = sumBy(allTransfers, (t) => t.from === account);
-  return opening + inc - exp + transfersIn - transfersOut;
+  const tIn = sumBy(allTransfers, t => t.to === account);
+  const tOut = sumBy(allTransfers, t => t.from === account);
+  return opening + inc - exp + tIn - tOut;
 }
 function computeTotalBalance() {
   return ACCOUNTS.reduce((s, a) => s + computeAccountBalance(a), 0);
@@ -281,7 +268,6 @@ function rowHtml(e, type) {
         <div class="row-meta">${escapeHtml(e.category || "אחר")} · ${escapeHtml(who || "")} · ${dateStr}${sourceTag}</div>
       </div>
       <span class="${amountClass}">${prefix}${Math.round(e.amount).toLocaleString()}₪</span>
-      <button class="row-edit" data-id="${e.id}" data-type="${type}" aria-label="ערוך">✏️</button>
       <button class="row-delete" data-id="${e.id}" data-type="${type}" aria-label="מחק">✕</button>
     </div>`;
 }
@@ -293,39 +279,31 @@ function renderRows(container, list, type, opts = {}) {
   }
   const items = opts.limit ? list.slice(0, opts.limit) : list;
   container.innerHTML = items.map((e) => rowHtml(e, type)).join("");
-  container.querySelectorAll(".row-delete").forEach((btn) => {
+  container.querySelectorAll(".row-delete").forEach(btn => {
     btn.addEventListener("click", () => {
       const isIncome = btn.dataset.type === "income";
-      if (confirm(isIncome ? "למחוק את ההכנסה?" : "למחוק את ההוצאה?")) {
+      if (confirm(isIncome ? "למחוק את ההכנסה?" : "למחוק את ההוצאה?"))
         (isIncome ? incomeRef : expensesRef).doc(btn.dataset.id).delete();
-      }
     });
   });
-  container.querySelectorAll(".row-edit").forEach((btn) => {
+  container.querySelectorAll(".row-edit").forEach(btn => {
     btn.addEventListener("click", () => {
-      const type = btn.dataset.type;
-      const id   = btn.dataset.id;
-      const list = type === "income" ? allIncome : allExpenses;
-      const item = list.find(e => e.id === id);
+      const type = btn.dataset.type, id = btn.dataset.id;
+      const item = (type==="income" ? allIncome : allExpenses).find(e=>e.id===id);
       if (!item) return;
-      currentEditId   = id;
-      currentEditType = type;
-      modalType = type;
-      // Switch modal tab
-      document.querySelectorAll("[data-modal]").forEach(b => b.classList.toggle("active", b.dataset.modal === type));
-      // Fill fields
+      currentEditId = id; currentEditType = type; modalType = type;
+      document.querySelectorAll("[data-modal]").forEach(b=>b.classList.toggle("active",b.dataset.modal===type));
       document.getElementById("amount").value = item.amount;
-      document.getElementById("description").value = item.description || "";
+      document.getElementById("description").value = item.description||"";
       populateCategorySelects();
-      const catSel = document.getElementById("category");
-      if (catSel) catSel.value = item.category || "";
-      const acct = type === "income" ? item.account : item.paidBy;
-      document.querySelectorAll('input[name="payAccount"]').forEach(r => { r.checked = r.value === acct; });
-      // Update modal title and button
-      const titleEl = document.getElementById("modal-title");
-      const submitEl = document.getElementById("submit-btn");
-      if (titleEl) titleEl.textContent = type === "income" ? "עריכת הכנסה ✏️" : "עריכת הוצאה ✏️";
-      if (submitEl) submitEl.textContent = "שמור שינויים";
+      const cat = document.getElementById("category");
+      if (cat) cat.value = item.category||"";
+      const acct = type==="income" ? item.account : item.paidBy;
+      document.querySelectorAll('input[name="payAccount"]').forEach(r=>{r.checked=r.value===acct;});
+      const t = document.getElementById("modal-title");
+      const s = document.getElementById("submit-btn");
+      if (t) t.textContent = type==="income" ? "עריכת הכנסה ✏️" : "עריכת הוצאה ✏️";
+      if (s) s.textContent = "שמור שינויים";
       overlay.classList.remove("hidden");
     });
   });
@@ -851,10 +829,10 @@ document.querySelectorAll("[data-period]").forEach((btn) => {
     renderReportsView();
   });
 });
-document.querySelectorAll("[data-partner-filter]").forEach((btn) => {
+document.querySelectorAll("[data-partner-filter]").forEach(btn => {
   btn.addEventListener("click", () => {
     reportPartnerFilter = btn.dataset.partnerFilter;
-    document.querySelectorAll("[data-partner-filter]").forEach((b) => b.classList.toggle("active", b.dataset.partnerFilter === reportPartnerFilter));
+    document.querySelectorAll("[data-partner-filter]").forEach(b => b.classList.toggle("active", b.dataset.partnerFilter === reportPartnerFilter));
     renderReportsView();
   });
 });
@@ -1134,16 +1112,11 @@ document.getElementById("event-expense-form").addEventListener("submit", (e) => 
    13) SETTINGS VIEW
    ============================================================ */
 function renderSettingsView() {
-  updateProfilePicDisplay();
   renderCategoryChips(document.getElementById("category-manage-list"), config.categories, "categories");
   renderCategoryChips(document.getElementById("income-category-manage-list"), config.incomeCategories, "incomeCategories");
   document.getElementById("toggle-maaser").checked = config.maaserEnabled;
   document.getElementById("self-employed-select").value = config.selfEmployed;
   document.getElementById("self-employed-row").classList.toggle("hidden", !config.maaserEnabled);
-}
-function pinAcherLast(list) {
-  const w = list.filter(c => c !== "אחר");
-  return list.includes("אחר") ? [...w, "אחר"] : w;
 }
 function renderCategoryChips(container, list, field) {
   list = pinAcherLast(list);
@@ -1193,6 +1166,111 @@ function exportCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/* ═══ Quotes ═══ */
+const QUOTES=["מי שלא שולט בכספיו — כספיו שולטים בו","לא מה שמרוויחים קובע — אלא מה ששומרים","כל שקל שאתם מכירים — שקל שעובד בשבילכם","שליטה בכסף מתחילה בהכרת המספרים","הדרך לחופש כלכלי עוברת דרך מודעות יומיומית","תקציב זה לא מגבלה — זו בחירה"];
+let _qi=0,_qt=null;
+function startQuotesRotation(){const el=document.getElementById("quotes-text");if(!el)return;el.textContent=QUOTES[_qi];clearInterval(_qt);_qt=setInterval(()=>{el.style.opacity="0";setTimeout(()=>{_qi=(_qi+1)%QUOTES.length;el.textContent=QUOTES[_qi];el.style.opacity="1";},400);},5000);}
+
+/* ═══ PWA banner ═══ */
+function showPwaBanner(){const shown=localStorage.getItem("pwaBD");const st=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(!shown&&!st)setTimeout(()=>{const b=document.getElementById("pwa-app-banner");if(b)b.classList.remove("hidden");},3000);}
+function dismissPwaBanner(){const b=document.getElementById("pwa-app-banner");if(b)b.classList.add("hidden");localStorage.setItem("pwaBD","1");}
+
+/* ═══ Joint account ═══ */
+function applyJointAccountSettings(){
+  const en=config.hasJointAccount;
+  const base=["יוסף","אגם","מזומן"], baseBal=["יוסף","אגם","מזומן","חיסכון"];
+  ACCOUNTS=en?[base[0],base[1],JOINT,base[2]]:base;
+  BALANCE_ACCOUNTS=en?[baseBal[0],baseBal[1],JOINT,...baseBal.slice(2)]:baseBal;
+  const opt=document.getElementById("joint-option");
+  if(opt)opt.classList.toggle("hidden",!en);
+  const td=document.getElementById("transfers-drawer-item");
+  if(td)td.classList.toggle("hidden",!en);
+  const tog=document.getElementById("toggle-joint-account");
+  if(tog&&tog.checked!==en)tog.checked=en;
+  const fr=document.getElementById("transfer-from"),to=document.getElementById("transfer-to");
+  if(fr&&to){const o=BALANCE_ACCOUNTS.map(a=>`<option value="${a}">${a}</option>`).join("");fr.innerHTML=o;to.innerHTML=o;if(to.options.length>1)to.selectedIndex=1;}
+}
+
+/* ═══ Transfers ═══ */
+function renderTransfersView(){
+  applyJointAccountSettings();
+  const listEl=document.getElementById("transfers-list");
+  if(!listEl)return;
+  if(!allTransfers.length){listEl.innerHTML=`<p class="empty-hint">עדיין אין העברות</p>`;return;}
+  listEl.innerHTML=allTransfers.map(t=>{
+    const date=toDate(t.date).toLocaleDateString("he-IL",{day:"numeric",month:"short"});
+    return `<div class="expense-row"><span class="row-dot" style="background:var(--purple)"></span><div class="row-main"><div class="row-title">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div><div class="row-meta">${date}${t.note?" · "+escapeHtml(t.note):""}</div></div><span class="row-amount">${Math.round(t.amount).toLocaleString()}₪</span><button class="row-delete" data-tid="${t.id}">✕</button></div>`;
+  }).join("");
+  listEl.querySelectorAll(".row-delete").forEach(b=>b.addEventListener("click",()=>{if(confirm("למחוק?"))transfersRef.doc(b.dataset.tid).delete();}));
+}
+const _tsBtn=document.getElementById("transfer-submit-btn");
+if(_tsBtn)_tsBtn.addEventListener("click",()=>{
+  const from=document.getElementById("transfer-from").value;
+  const to=document.getElementById("transfer-to").value;
+  const amount=parseFloat(document.getElementById("transfer-amount").value);
+  const note=document.getElementById("transfer-note").value.trim();
+  if(!from||!to||from===to||!amount||amount<=0){alert("בחר חשבונות שונים והזן סכום");return;}
+  transfersRef.add({from,to,amount,note,date:firebase.firestore.Timestamp.now()}).then(()=>{
+    document.getElementById("transfer-amount").value="";
+    document.getElementById("transfer-note").value="";
+    showToast(`✅ הועבר ${amount.toLocaleString()}₪ מ${from} ל${to}`);
+  });
+});
+
+/* ═══ Tutorial ═══ */
+const TUTORIAL_STEPS=[
+  {view:"dashboard",title:"לוח הבקרה 📊",desc:"סיכום חודשי מלא — הוצאות, הכנסות, ומי שילם מה."},
+  {view:"dashboard",title:"כפתור ➕",desc:"הפס הרחב בתחתית — הוספת הוצאה או הכנסה."},
+  {view:"expenses",title:"הוצאות 💸",desc:"כל ההוצאות, מסוננות לפי חודש וקטגוריה."},
+  {view:"income",title:"הכנסות 💰",desc:"משכורות, בונוסים, העברות — מסודר לפי חודש."},
+  {view:"finances",title:"כספים וחסכונות 🏦",desc:"יתרות עדכניות בכל ארנק ויעדי חיסכון."},
+  {view:"reports",title:"דוחות 📈",desc:"פילוח, גרף חודשי, השוואה לחודש קודם."},
+  {view:"maaser",title:"מעשרות 🤲",desc:"10% מההכנסות. עוקב אחרי מה שכבר שולם."},
+  {view:"settings",title:"הגדרות ⚙️",desc:"קטגוריות, תמונת פרופיל, מדריך מחדש."}
+];
+let _ts=0;
+function startTutorial(){_ts=0;document.getElementById("tutorial-overlay").classList.remove("hidden");_applyT();}
+function _applyT(){
+  const s=TUTORIAL_STEPS[_ts];
+  if(s.view){currentView=s.view;document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.dataset.view!==s.view));document.querySelectorAll(".drawer-item").forEach(b=>b.classList.toggle("active",b.dataset.view===s.view));renderCurrentView();}
+  const dw=document.getElementById("drawer-overlay");if(dw)dw.classList.add("hidden");
+  document.getElementById("tutorial-title").textContent=s.title;
+  document.getElementById("tutorial-desc").textContent=s.desc;
+  document.getElementById("tutorial-step-label").textContent=`שלב ${_ts+1}/${TUTORIAL_STEPS.length}`;
+  document.getElementById("tutorial-next").textContent=_ts===TUTORIAL_STEPS.length-1?"סיום ✓":"הבא ›";
+  const p=document.getElementById("tutorial-prev");p.style.opacity=_ts===0?"0":"1";p.style.pointerEvents=_ts===0?"none":"auto";
+}
+function nextTutorialStep(){if(_ts===TUTORIAL_STEPS.length-1){endTutorial();return;}_ts++;_applyT();}
+function prevTutorialStep(){if(_ts>0){_ts--;_applyT();}}
+function endTutorial(){document.getElementById("tutorial-overlay").classList.add("hidden");configRef.set({tutorialDone:true},{merge:true});currentView="dashboard";document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.dataset.view!=="dashboard"));renderCurrentView();}
+
+/* ═══ Profile picture ═══ */
+function updateProfilePicDisplay(){
+  const pic=config.profilePic;
+  const img=document.getElementById("profile-pic-img");
+  const init=document.getElementById("profile-pic-initial");
+  const rb=document.getElementById("profile-pic-remove");
+  if(!img||!init)return;
+  if(pic){img.src=pic;img.classList.remove("hidden");init.classList.add("hidden");if(rb)rb.classList.remove("hidden");const a=document.getElementById("avatar-p1");if(a){a.style.backgroundImage=`url(${pic})`;a.style.backgroundSize="cover";a.textContent="";}}
+  else{img.classList.add("hidden");init.classList.remove("hidden");init.textContent=p1()?p1()[0]:"י";if(rb)rb.classList.add("hidden");const a=document.getElementById("avatar-p1");if(a){a.style.backgroundImage="";a.textContent=p1()?p1()[0]:"י";}}
+}
+const _ppBtn=document.getElementById("profile-pic-btn");
+if(_ppBtn)_ppBtn.addEventListener("click",()=>document.getElementById("profile-pic-input").click());
+const _ppInput=document.getElementById("profile-pic-input");
+if(_ppInput)_ppInput.addEventListener("change",(e)=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=(ev)=>{const c=document.createElement("canvas");const i=new window.Image();i.onload=()=>{const sz=200;c.width=sz;c.height=sz;const ctx=c.getContext("2d");const sc=Math.max(sz/i.width,sz/i.height);ctx.drawImage(i,(sz-i.width*sc)/2,(sz-i.height*sc)/2,i.width*sc,i.height*sc);configRef.set({profilePic:c.toDataURL("image/jpeg",0.7)},{merge:true});};i.src=ev.target.result;};r.readAsDataURL(file);e.target.value="";});
+const _ppRm=document.getElementById("profile-pic-remove");
+if(_ppRm)_ppRm.addEventListener("click",()=>configRef.set({profilePic:null},{merge:true}));
+
+/* ═══ Settings toggle handlers ═══ */
+const _tjEl=document.getElementById("toggle-joint-account");
+if(_tjEl)_tjEl.addEventListener("change",(e)=>configRef.set({hasJointAccount:e.target.checked},{merge:true}));
+const _rtEl=document.getElementById("restart-tutorial-btn");
+if(_rtEl)_rtEl.addEventListener("click",()=>startTutorial());
+
+/* ═══ pinAcherLast ═══ */
+function pinAcherLast(list){const w=list.filter(c=>c!=="אחר");return list.includes("אחר")?[...w,"אחר"]:w;}
+
 document.getElementById("clear-all-btn").addEventListener("click", () => {
   if (!confirm("בטוחים? כל ההוצאות וההכנסות יימחקו לצמיתות.")) return;
   if (!confirm("רגע אחרון - זו פעולה שאי אפשר לבטל. למחוק הכל?")) return;
@@ -1501,11 +1579,9 @@ function triggerBalanceFlash(account, oldBal, newBal, type) {
 }
 
 function resetAndClose() {
-  currentEditId = null; currentEditType = null;
-  const titleEl = document.getElementById("modal-title");
-  const submitEl = document.getElementById("submit-btn");
-  if (titleEl) titleEl.textContent = "הוצאה חדשה";
-  if (submitEl) submitEl.textContent = "הוסף";
+  currentEditId=null; currentEditType=null;
+  const t=document.getElementById("modal-title"); if(t)t.textContent="תנועה חדשה";
+  const s=document.getElementById("submit-btn"); if(s)s.textContent="הוסף";
   document.getElementById("expense-form").reset();
   document.querySelector('input[name="payAccount"][value="יוסף"]').checked = true;
   overlay.classList.add("hidden");
@@ -1531,9 +1607,9 @@ function renderMaaserView() {
   const { totalIncome, businessExpenses, base, owed, paid, remaining } = computeMaaserData();
   const card = document.getElementById("maaser-hero");
   card.className = "maaser-hero " + (remaining > 0 ? "maaser-owes" : "maaser-clear");
-  document.getElementById("maaser-owed-fig").textContent = remaining > 0 ? `${Math.round(remaining).toLocaleString()} ₪` : "שולם! ✅";
+  document.getElementById("maaser-owed-fig").textContent = `${Math.round(owed).toLocaleString()} ₪`;
   document.getElementById("maaser-hero-sub").textContent =
-    remaining > 0 ? `נשאר לשלם מתוך ${Math.round(owed).toLocaleString()}₪` : `שולם במלואם — ${Math.round(owed).toLocaleString()}₪`;
+    remaining > 0 ? `נשאר לשלם ${Math.round(remaining).toLocaleString()}₪` : `✅ המעשרות שולמו במלואם!`;
   document.getElementById("maaser-total-income").textContent = `${Math.round(totalIncome).toLocaleString()}₪`;
   document.getElementById("maaser-business-deduct").textContent = businessExpenses > 0 ? `-${Math.round(businessExpenses).toLocaleString()}₪` : "0₪";
   document.getElementById("maaser-paid-total").textContent = `${Math.round(paid).toLocaleString()}₪`;
@@ -1644,123 +1720,6 @@ document.getElementById("self-employed-select").addEventListener("change", (e) =
 /* ============================================================
    15) Init
    ============================================================ */
-
-
-/* ═══ Joint account settings ═══ */
-function applyJointAccountSettings() {
-  const enabled = config.hasJointAccount;
-  // Update ACCOUNTS arrays
-  const baseAccounts = ["יוסף", "אגם", "מזומן"];
-  const baseBalance  = ["יוסף", "אגם", "מזומן", "חיסכון"];
-  ACCOUNTS       = enabled ? [...baseAccounts.slice(0,2), JOINT, ...baseAccounts.slice(2)] : baseAccounts;
-  BALANCE_ACCOUNTS = enabled ? [...baseBalance.slice(0,2), JOINT, ...baseBalance.slice(2)] : baseBalance;
-  // Show/hide joint option in main modal
-  const opt = document.getElementById("joint-account-option-main");
-  if (opt) opt.classList.toggle("hidden", !enabled);
-  // Show/hide transfers drawer
-  const td = document.getElementById("transfers-drawer-item");
-  if (td) td.classList.toggle("hidden", !enabled);
-  // Sync toggle
-  const tog = document.getElementById("toggle-joint-account");
-  if (tog && tog.checked !== enabled) tog.checked = enabled;
-  // Repopulate transfer selects
-  const fromEl = document.getElementById("transfer-from");
-  const toEl   = document.getElementById("transfer-to");
-  if (fromEl && toEl) {
-    const opts = BALANCE_ACCOUNTS.map(a => `<option value="${a}">${a}</option>`).join("");
-    fromEl.innerHTML = opts;
-    toEl.innerHTML   = opts;
-    if (toEl.options.length > 1) toEl.selectedIndex = 1;
-  }
-}
-
-/* ═══ Transfers view ═══ */
-function renderTransfersView() {
-  const fromEl = document.getElementById("transfer-from");
-  const toEl   = document.getElementById("transfer-to");
-  if (fromEl && fromEl.options.length === 0) applyJointAccountSettings();
-  const listEl = document.getElementById("transfers-list");
-  if (!listEl) return;
-  if (allTransfers.length === 0) {
-    listEl.innerHTML = `<p class="empty-hint">עדיין אין העברות</p>`;
-    return;
-  }
-  listEl.innerHTML = allTransfers.map(t => {
-    const date = toDate(t.date).toLocaleDateString("he-IL", {day:"numeric",month:"short"});
-    return `<div class="expense-row">
-      <span class="row-dot" style="background:var(--purple)"></span>
-      <div class="row-main">
-        <div class="row-title">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
-        <div class="row-meta">${date}${t.note ? " · " + escapeHtml(t.note) : ""}</div>
-      </div>
-      <span class="row-amount">${Math.round(t.amount).toLocaleString()}₪</span>
-      <button class="row-delete" data-tid="${t.id}" aria-label="מחק">✕</button>
-    </div>`;
-  }).join("");
-  listEl.querySelectorAll(".row-delete").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (confirm("למחוק העברה זו?")) transfersRef.doc(btn.dataset.tid).delete();
-    });
-  });
-}
-
-document.getElementById("transfer-submit-btn").addEventListener("click", () => {
-  const from   = document.getElementById("transfer-from").value;
-  const to     = document.getElementById("transfer-to").value;
-  const amount = parseFloat(document.getElementById("transfer-amount").value);
-  const note   = document.getElementById("transfer-note").value.trim();
-  if (!from || !to || from === to || !amount || amount <= 0) {
-    alert("נא לבחור חשבון שונה עבור מוצא ויעד, ולהזין סכום"); return;
-  }
-  transfersRef.add({ from, to, amount, note, date: firebase.firestore.Timestamp.now() }).then(() => {
-    document.getElementById("transfer-amount").value = "";
-    document.getElementById("transfer-note").value = "";
-    showToast(`✅ הועבר ${amount.toLocaleString()}₪ מ${from} ל${to}`);
-  });
-});
-
-/* ═══ Settings toggle handlers ═══ */
-document.getElementById("toggle-joint-account").addEventListener("change", (e) => {
-  configRef.set({ hasJointAccount: e.target.checked }, { merge: true });
-});
-
-/* ═══ Quotes ═══ */
-const QUOTES = ["מי שלא שולט בכספיו — כספיו שולטים בו","לא מה שמרוויחים קובע — אלא מה ששומרים","כל שקל שאתם מכירים — שקל שעובד בשבילכם","שליטה בכסף מתחילה בהכרת המספרים","הדרך לחופש כלכלי עוברת דרך מודעות יומיומית","תקציב זה לא מגבלה — זו בחירה"];
-let _qi=0,_qt=null;
-function startQuotesRotation(){const el=document.getElementById("quotes-text");if(!el)return;el.textContent=QUOTES[_qi];clearInterval(_qt);_qt=setInterval(()=>{el.style.opacity="0";setTimeout(()=>{_qi=(_qi+1)%QUOTES.length;el.textContent=QUOTES[_qi];el.style.opacity="1";},400);},5000);}
-
-/* ═══ PWA banner ═══ */
-function showPwaBanner(){const s=localStorage.getItem("pwaBD");const st=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone;if(!s&&!st)setTimeout(()=>{const b=document.getElementById("pwa-app-banner");if(b)b.classList.remove("hidden");},3000);}
-function dismissPwaBanner(){const b=document.getElementById("pwa-app-banner");if(b)b.classList.add("hidden");localStorage.setItem("pwaBD","1");}
-
-/* ═══ Tutorial ═══ */
-const TUTORIAL_STEPS=[
-  {view:"dashboard",title:"לוח הבקרה 📊",desc:"סיכום חודשי מלא — הוצאות, הכנסות, ומי שילם מה."},
-  {view:"dashboard",title:"כפתור ➕",desc:"הפס הרחב בתחתית — הוספת הוצאה או הכנסה בשנייה."},
-  {view:"expenses",title:"הוצאות 💸",desc:"כל ההוצאות שלכם, מסוננות לפי חודש וקטגוריה."},
-  {view:"income",title:"הכנסות 💰",desc:"משכורות, בונוסים, העברות — הכל מסודר לפי חודש."},
-  {view:"finances",title:"כספים וחסכונות 🏦",desc:"יתרות עדכניות בכל ארנק ויעדי חיסכון עם התקדמות."},
-  {view:"events",title:"תקציבי אירועים 🎯",desc:"כל אירוע מקבל תקציב נפרד שלא מבלבל את השוטף."},
-  {view:"recurring",title:"תנועות קבועות 🔁",desc:"הוסיפו פעם — האפליקציה מוסיפה כל חודש לבד."},
-  {view:"debts",title:"חובות 🤝",desc:"עקבו אחרי חובות, שלמו, וסגרו — ממקום אחד."},
-  {view:"reports",title:"דוחות 📈",desc:"פילוח, גרף חודשי, השוואה לחודש קודם — אוטומטי."},
-  {view:"maaser",title:"מעשרות 🤲",desc:"10% מההכנסות. עוקב אחרי מה שכבר שולם."},
-  {view:"settings",title:"הגדרות ⚙️",desc:"קטגוריות, תמונת פרופיל, ועוד — הכל כאן."}
-];
-let _ts=0;
-function startTutorial(){_ts=0;document.getElementById("tutorial-overlay").classList.remove("hidden");_applyT();}
-function _applyT(){const s=TUTORIAL_STEPS[_ts];if(s.view){currentView=s.view;document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.dataset.view!==s.view));document.querySelectorAll(".drawer-item").forEach(b=>b.classList.toggle("active",b.dataset.view===s.view));renderCurrentView();}const d=document.getElementById("drawer-overlay");if(d)d.classList.add("hidden");document.getElementById("tutorial-title").textContent=s.title;document.getElementById("tutorial-desc").textContent=s.desc;document.getElementById("tutorial-step-label").textContent=`שלב ${_ts+1}/${TUTORIAL_STEPS.length}`;document.getElementById("tutorial-next").textContent=_ts===TUTORIAL_STEPS.length-1?"סיום ✓":"הבא ›";const p=document.getElementById("tutorial-prev");p.style.opacity=_ts===0?"0":"1";p.style.pointerEvents=_ts===0?"none":"auto";}
-function nextTutorialStep(){if(_ts===TUTORIAL_STEPS.length-1){endTutorial();return;}_ts++;_applyT();}
-function prevTutorialStep(){if(_ts>0){_ts--;_applyT();}}
-function endTutorial(){document.getElementById("tutorial-overlay").classList.add("hidden");configRef.set({tutorialDone:true},{merge:true});currentView="dashboard";document.querySelectorAll(".view").forEach(v=>v.classList.toggle("hidden",v.dataset.view!=="dashboard"));renderCurrentView();}
-document.getElementById("restart-tutorial-btn").addEventListener("click",()=>{configRef.set({tutorialDone:false},{merge:true}).then(()=>startTutorial());});
-
-/* ═══ Profile picture ═══ */
-document.getElementById("profile-pic-btn").addEventListener("click",()=>document.getElementById("profile-pic-input").click());
-document.getElementById("profile-pic-input").addEventListener("change",(e)=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=(ev)=>{const c=document.createElement("canvas");const i=new window.Image();i.onload=()=>{const sz=200;c.width=sz;c.height=sz;const ctx=c.getContext("2d");const sc=Math.max(sz/i.width,sz/i.height);ctx.drawImage(i,(sz-i.width*sc)/2,(sz-i.height*sc)/2,i.width*sc,i.height*sc);configRef.set({profilePic:c.toDataURL("image/jpeg",0.7)},{merge:true});};i.src=ev.target.result;};r.readAsDataURL(file);e.target.value="";});
-document.getElementById("profile-pic-remove").addEventListener("click",()=>configRef.set({profilePic:null},{merge:true}));
-function updateProfilePicDisplay(){const pic=config.profilePic;const img=document.getElementById("profile-pic-img");const init=document.getElementById("profile-pic-initial");const rb=document.getElementById("profile-pic-remove");if(pic){img.src=pic;img.classList.remove("hidden");init.classList.add("hidden");if(rb)rb.classList.remove("hidden");const a1=document.getElementById("avatar-p1");if(a1){a1.style.backgroundImage=`url(${pic})`;a1.style.backgroundSize="cover";a1.textContent="";}}else{img.classList.add("hidden");init.classList.remove("hidden");init.textContent=p1()?p1()[0]:"י";if(rb)rb.classList.add("hidden");const a1=document.getElementById("avatar-p1");if(a1){a1.style.backgroundImage="";a1.textContent=p1()?p1()[0]:"י";}}}
-
 populateCategorySelects();
 renderCurrentView();
 showPwaBanner();

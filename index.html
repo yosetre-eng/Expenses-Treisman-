@@ -12,16 +12,12 @@
 <meta name="theme-color" content="#1B7568">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
 <div id="app">
-  <div id="pwa-app-banner" class="pwa-app-banner hidden">
-    <span>📲 הוסיפו למסך הבית לחוויה מיטבית</span>
-    <button onclick="document.getElementById('pwa-modal-overlay').classList.remove('hidden')" class="pwa-app-banner-btn">איך?</button>
-    <button onclick="dismissPwaBanner()" class="pwa-app-banner-close">✕</button>
-  </div>
+  <div id="pwa-app-banner" class="pwa-app-banner hidden"><span>📲 הוסיפו למסך הבית לחוויה מיטבית</span><button onclick="document.getElementById('pwa-modal-overlay').classList.remove('hidden')" class="pwa-app-banner-btn">איך?</button><button onclick="dismissPwaBanner()" class="pwa-app-banner-close">✕</button></div>
 
   <!-- Top bar -->
   <header class="topbar">
@@ -38,10 +34,7 @@
 
   <!-- ============== DASHBOARD VIEW ============== -->
   <section class="view" data-view="dashboard">
-    <div class="quotes-banner" id="quotes-banner">
-      <span class="quotes-icon">💡</span>
-      <span id="quotes-text" class="quotes-text"></span>
-    </div>
+    <div class="quotes-banner"><span class="quotes-icon">💡</span><span id="quotes-text" class="quotes-text"></span></div>
 
     <div class="month-bar">
       <button id="prev-month" class="month-arrow" aria-label="חודש קודם">‹</button>
@@ -57,7 +50,7 @@
 
     <div class="hero-card">
       <div class="hero-top">
-        <span class="hero-eyebrow" id="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
+        <span class="hero-eyebrow">סך ההוצאות המשותפות החודש</span>
         <span class="hero-badge" id="hero-badge">פעיל</span>
       </div>
       <div class="hero-figure" id="hero-figure">0 ₪</div>
@@ -234,10 +227,10 @@
         <button class="period-btn" data-period="year">שנתי</button>
         <button class="period-btn" data-period="all">הכל</button>
       </div>
-      <div class="report-partner-row" id="report-partner-row">
+      <div class="report-partner-row">
         <button class="partner-filter-btn active" data-partner-filter="all">כולם</button>
-        <button class="partner-filter-btn" data-partner-filter="p1" id="partner-filter-p1">יוסף</button>
-        <button class="partner-filter-btn" data-partner-filter="p2" id="partner-filter-p2">אגם</button>
+        <button class="partner-filter-btn" data-partner-filter="p1" id="pf-p1">יוסף</button>
+        <button class="partner-filter-btn" data-partner-filter="p2" id="pf-p2">אגם</button>
       </div>
     </div>
 
@@ -332,33 +325,18 @@
     </div>
   </section>
 
-  <!-- ============== TRANSFERS VIEW ============== -->
+  <!-- TRANSFERS VIEW -->
   <section class="view hidden" data-view="transfers">
+    <div class="panel"><div class="panel-head"><h2>העברות בין חשבונות 🔄</h2></div>
+    <p class="panel-desc">העברה לא נחשבת הוצאה — רק זזה בין הארנקים.</p></div>
     <div class="panel">
-      <div class="panel-head"><h2>העברות בין חשבונות 🔄</h2></div>
-      <p class="panel-desc">העברה מחשבון לחשבון לא נחשבת הוצאה — רק זזה בין הארנקים שלכם.</p>
-    </div>
-    <div class="panel">
-      <div class="field">
-        <span>מחשבון</span>
-        <select id="transfer-from" class="setting-select" style="width:100%;"></select>
-      </div>
-      <div class="field">
-        <span>לחשבון</span>
-        <select id="transfer-to" class="setting-select" style="width:100%;"></select>
-      </div>
-      <label class="field">
-        <span>סכום (₪)</span>
-        <input type="number" id="transfer-amount" inputmode="decimal" min="0" step="1" placeholder="0">
-      </label>
-      <label class="field">
-        <span>הערה (אופציונלי)</span>
-        <input type="text" id="transfer-note" placeholder="לדוגמה: לכיסוי הוצאות משותפות">
-      </label>
+      <label class="field"><span>מחשבון</span><select id="transfer-from" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:inherit;background:var(--bg);"></select></label>
+      <label class="field"><span>לחשבון</span><select id="transfer-to" style="width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:inherit;background:var(--bg);"></select></label>
+      <label class="field"><span>סכום ₪</span><input type="number" id="transfer-amount" inputmode="decimal" min="0" placeholder="0"></label>
+      <label class="field"><span>הערה (אופציונלי)</span><input type="text" id="transfer-note" placeholder="לדוגמה: לכיסוי הוצאות משותפות"></label>
       <button id="transfer-submit-btn" class="submit-btn">העבר ›</button>
     </div>
-    <div class="panel">
-      <div class="panel-head"><h2>היסטוריית העברות</h2></div>
+    <div class="panel"><div class="panel-head"><h2>היסטוריית העברות</h2></div>
       <div id="transfers-list" class="expense-list"><p class="empty-hint">עדיין אין העברות</p></div>
     </div>
   </section>
@@ -370,12 +348,9 @@
       <div class="setting-row">
         <div class="setting-row-info">
           <span class="setting-row-title">חשבון משותף 🤝</span>
-          <span class="setting-row-sub">מוסיף "חשבון משותף" בהוצאות, הכנסות ומסך העברות</span>
+          <span class="setting-row-sub">מוסיף חשבון משותף בהוצאות והכנסות, ומסך העברות</span>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-joint-account">
-          <span class="toggle-slider"></span>
-        </label>
+        <label class="toggle-switch"><input type="checkbox" id="toggle-joint-account"><span class="toggle-slider"></span></label>
       </div>
       <div class="setting-row">
         <div class="setting-row-info">
@@ -400,22 +375,6 @@
         </select>
       </div>
     </div>
-
-    <div class="panel">
-      <div class="panel-head"><h2>תמונת פרופיל</h2></div>
-      <div class="profile-pic-section">
-        <div id="profile-pic-display" class="profile-pic-display">
-          <span id="profile-pic-initial">י</span>
-          <img id="profile-pic-img" class="hidden" alt="">
-        </div>
-        <div>
-          <input type="file" id="profile-pic-input" accept="image/*" class="hidden">
-          <button id="profile-pic-btn" class="mini-btn" style="display:block;margin-bottom:6px;">📷 בחר תמונה</button>
-          <button id="profile-pic-remove" class="link-btn hidden">הסר תמונה</button>
-        </div>
-      </div>
-    </div>
-
     <div class="panel">
       <div class="panel-head"><h2>קטגוריות הוצאה</h2></div>
       <div id="category-manage-list" class="category-manage-list"></div>
@@ -432,25 +391,35 @@
         <button id="add-income-category-btn" class="mini-btn">הוסף</button>
       </div>
     </div>
-
     <div class="panel">
       <div class="panel-head"><h2>ייבוא מהבנק</h2></div>
-      <p class="panel-desc">מעלים קובץ CSV של דוח תנועות מהבנק, והמערכת תנחש קטגוריה לכל תנועה.</p>
+      <p class="panel-desc">מעלים קובץ CSV של דוח תנועות מהבנק, והמערכת תנחש קטגוריה לכל תנועה ותיתן לבחור מה בדיוק לייבא לפני שמירה.</p>
       <input type="file" id="bank-csv-input" accept=".csv,text/csv" class="hidden">
       <button id="open-bank-import" class="submit-btn">בחירת קובץ CSV</button>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>ייצוא נתונים</h2></div>
-      <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות.</p>
+      <p class="panel-desc">מוריד קובץ CSV עם כל ההוצאות וההכנסות, שאפשר לפתוח או לייבא ישירות ל-Google Sheets.</p>
       <button id="export-csv-btn" class="submit-btn">ייצוא ל-CSV</button>
     </div>
-
+    <div class="panel">
+      <div class="panel-head"><h2>תמונת פרופיל</h2></div>
+      <div class="profile-pic-section">
+        <div id="profile-pic-display" class="profile-pic-display">
+          <span id="profile-pic-initial">י</span>
+          <img id="profile-pic-img" class="hidden" alt="">
+        </div>
+        <div>
+          <input type="file" id="profile-pic-input" accept="image/*" class="hidden">
+          <button id="profile-pic-btn" class="mini-btn" style="display:block;margin-bottom:6px;">📷 בחר תמונה</button>
+          <button id="profile-pic-remove" class="link-btn hidden">הסר תמונה</button>
+        </div>
+      </div>
+    </div>
     <div class="panel">
       <div class="panel-head"><h2>החשבון שלנו</h2></div>
       <button id="restart-tutorial-btn" class="submit-btn" style="background:var(--purple-tint);color:var(--purple);margin-bottom:8px;">🎓 הפעל מדריך מחדש</button>
-      <button id="logout-btn" class="submit-btn logout-btn">יציאה מהחשבון</button>
     </div>
-
     <div class="panel danger-panel">
       <div class="panel-head"><h2>אזור מסוכן</h2></div>
       <p class="panel-desc">מחיקת כל ההוצאות וההכנסות לצמיתות - אין דרך לבטל.</p>
@@ -683,18 +652,18 @@
   </div>
 </div>
 
-<!-- Tutorial overlay -->
+<!-- Tutorial -->
 <div id="tutorial-overlay" class="tutorial-overlay hidden">
-  <div id="tutorial-bubble" class="tutorial-bubble">
-    <div class="tutorial-header">
-      <span id="tutorial-step-label" class="tutorial-step-label">שלב 1</span>
-      <button class="tutorial-end-btn" onclick="endTutorial()">✕ סיים</button>
+  <div class="tutorial-bubble">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span id="tutorial-step-label" style="font-size:11.5px;color:var(--yosef);font-weight:700;">שלב 1</span>
+      <button onclick="endTutorial()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">✕ סיים</button>
     </div>
-    <h3 id="tutorial-title"></h3>
-    <p id="tutorial-desc"></p>
-    <div class="tutorial-nav">
-      <button id="tutorial-prev" class="mini-btn" onclick="prevTutorialStep()" style="opacity:0;">‹</button>
-      <button id="tutorial-next" class="submit-btn" style="flex:1;margin-inline-start:8px;" onclick="nextTutorialStep()">הבא ›</button>
+    <h3 id="tutorial-title" style="font-size:16px;font-weight:800;margin-bottom:4px;"></h3>
+    <p id="tutorial-desc" style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;"></p>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button id="tutorial-prev" onclick="prevTutorialStep()" class="mini-btn" style="opacity:0;">‹</button>
+      <button id="tutorial-next" onclick="nextTutorialStep()" class="submit-btn" style="flex:1;margin-inline-start:8px;">הבא ›</button>
     </div>
   </div>
 </div>
@@ -818,10 +787,13 @@
             <input type="radio" name="payAccount" value="חיסכון">
             <span>חיסכון 💰</span>
           </label>
-          <label class="who-option hidden" id="joint-account-option-main">
+          <label class="who-option hidden" id="joint-option">
             <input type="radio" name="payAccount" value="חשבון משותף">
             <span>משותף 🤝</span>
           </label>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn" id="submit-btn">הוסף הוצאה</button>
     </form>
   </div>
 </div>
@@ -874,10 +846,6 @@
         <span class="drawer-icon">🤲</span>
         <span class="drawer-item-text"><span class="drawer-item-title">מעשרות</span><span class="drawer-item-sub">חישוב ותשלום לצדקה</span></span>
       </button>
-      <button class="drawer-item hidden" id="transfers-drawer-item" data-view="transfers">
-        <span class="drawer-icon">🔄</span>
-        <span class="drawer-item-text"><span class="drawer-item-title">העברות בין חשבונות</span><span class="drawer-item-sub">העבירו כסף בין הארנקים</span></span>
-      </button>
       <button class="drawer-item" data-view="reports">
         <span class="drawer-icon">📊</span>
         <span class="drawer-item-text"><span class="drawer-item-title">דוחות וניתוח</span><span class="drawer-item-sub">פיצ׳רים ומגמות</span></span>
@@ -886,6 +854,10 @@
         <span class="drawer-icon">🤝</span>
         <span class="drawer-item-text"><span class="drawer-item-title">חובות</span><span class="drawer-item-sub">אנחנו ↔ אנשים אחרים</span></span>
       </button>
+      <button class="drawer-item hidden" id="transfers-drawer-item" data-view="transfers">
+        <span class="drawer-icon">🔄</span>
+        <span class="drawer-item-text"><span class="drawer-item-title">העברות בין חשבונות</span><span class="drawer-item-sub">הזיזו כסף בין הארנקים</span></span>
+      </button>
       <button class="drawer-item" data-view="settings">
         <span class="drawer-icon">⚙️</span>
         <span class="drawer-item-text"><span class="drawer-item-title">הגדרות</span><span class="drawer-item-sub">קטגוריות ועוד</span></span>
@@ -893,12 +865,10 @@
     </div>
   </nav>
 </div>
-</div>
-</div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
